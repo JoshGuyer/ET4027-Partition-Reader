@@ -1,0 +1,1003 @@
+
+
+Section A:  Processes  -   by D. Heffernan University of Limerick
+
+
+The purpose of this section is to introduce operating systems, with an emphasis on processes.
+
+SOME DEFINITIONS
+
+PROGRAM:   An executable sequence of instructions which resides in the computer storage area. It is a static entity.
+
+PROCESS:   A program in execution. It consists of the executable program, data, stack, registers and other information necessary to run the program. It is a dynamic entity.
+
+PROCESSOR: The agent which executes the program to realise a process. This is usually a hardware device, normally the system CPU.
+
+JOB:    A program or a set of programs which are to be processed in a specific environment to perform a system or a user function.
+
+BATCH SYSTEM: A job or jobs are submitted to the system for processing. A user has no further contact with the process until a job has been completed.
+
+INTERACTIVE SYSTEM: Jobs or individual processes are initiated from the user console. The job may be monitored and controlled by the user in an interactive fashion.
+ 
+MULTIPROCESSOR: There is more than one processor in the system available for processing. This increases the overall performance of a system.  
+
+MULTITASKING: Several programs can be executed on the system at the same time. 
+ 
+TASK:   Generally the same definition as a Process. Some text books and operating system developers will define a process and a task to be somewhat different – but for the purposes of this treatment a process and task will be taken as being the same thing.
+                   
+TASK and THREADS: Some operating systems split the abstraction of a task (or process) into two components: task and thread. The task is a set of system resources, including the address space, resource usage information etc., and can have one or more threads, where the thread is the basic unit of execution within the context of one task. 
+
+Operating system definition
+A computer operating system provides a virtual machine to abstract the underlying hardware. The operating system is also a resource manager.
+
+The operating system as a virtual machine:
+As shown in the diagram below the operating system is a software environment which ‘hides’ the hardware from the user environment. Programming the hardware directly is a tedious exercise, which requires a lot of low-level knowledge of the hardware architecture and the various interfaces. The operating system provides the programmer with a simpler environment where the hardware detail becomes more abstract and easier to use. For example, consider the concept of a simple file. A file is an abstraction to represent a collection of bytes stored on a physical disk (usually). To access these data bytes directly through the hardware, knowledge of the disk drive controller design and knowledge of the low-level format details of the disk drive is required. However, the operating system provides the file concept so that a user can simply open a file by using the file name and read and write the file in a simple fashion. The operating system provides the necessary device driver to interface to the disk drive’s hardware and provides the filing system to manage the various files. The programmer accesses the operating system via the API (application programmer’s interface). The API provides a library of system calls which can be used by the high-level language compiler or interpreter. Thus the programmer is ‘talking’ to the API and not to the underlying hardware; we say that a virtual machine is created which abstracts the underlying hardware.
+
+The operating system as a resource manager:
+Since multiple processes (tasks) and possibly multiple users can access the operating system at the same time, the management of system resources becomes very important. For example if two processes attempt to access a printer at the same times then the printed output may be garbled with mixed text from both processes. Hence the operating system needs to provide special synchronisation support to help manage the various system resources. 
+User processes and kernel processes
+System resources are managed by system processes, the kernel level processes.These processes should not compete for system resources since they are the managers of the resources. The kernel processes are assigned a set of resources which they control within the system. User processes compete for system resources by making service requests (system calls). A user process cannot do any direct I/O operations. Using a system service request, a user process asks the operating system kernel to perform a function on behalf of the process.
+
+
+
+GENERAL
+
+PROCESSES, PROGRAMS AND PROCESSORS
+A process is an abstraction of a running program. The program is a sequence of instructions and the execution of this sequence of instructions is called a process.
+
+Several processes may be instances of one program.
+
+The processor (usually a hardware device) is the agent which executes the program to realise a process. In these discussions we will consider a single processor system only. The extension of the concepts to a multiprocessor system will not be too difficult.
+
+CONCURRENT PROCESSES
+In multitasking systems several programs can be executed at the same time (or apparently at the same time). This simultaneous execution is known as concurrency. 
+
+
+To achieve such concurrency each process can run on a separate processor. However, processors are expensive devices and it is much more common to have just one processor in a system. By switching the processor from one process to another at short intervals of time an apparent concurrency is achieved on the single processor. Such a system gives the illusion of parallelism, sometimes referred to as pseudo-parallelism. As the CPU (the Central Processing Unit – or simply the processor) switches from process to process, so conceptually each process has its own CPU. 
+
+The sequence in which processes are allocated the CPU and the duration of each allocation is the subject of operating system scheduler design, as will be introduced later in these notes.
+
+
+
+PROCESS STATES
+
+A process known as the dispatcher ( the dispatcher is part of the scheduler operation, described later) is responsible assigning the CPU to a process for a selected time period. At any one instant in time one process is running on the CPU. Processes often need to interact with one another. A running process may become blocked if it reaches a point where it awaits input from another process or awaits a response from a relatively slow peripheral device. At a point in time a process may be ready to run but may have not yet been selected to the running state by the dispatcher. Three possible process states can be defined as follows:
+
+RUNNING 	- The process has been selected by the dispatcher
+          		   and is now the active process on the CPU
+
+
+READY   	- The process is runnable and is available for
+          		   selection to run by the dispatcher when the CPU
+          		   becomes available
+
+
+BLOCKED 	- The process is unable to run as it is awaiting
+          		   some event to happen (possibly waiting for
+          		   an I/O device to become ready). This state is
+          		   often referred to as the ASLEEP state.
+
+
+Processes can move between states, they are said to make state transitions. The diagram shows a directed graph. Nodes represent possible process states. The CPU can execute only one process at a time so only one process at most can be in the running state at a given time.
+
+
+
+	
+There are four possible state transitions described as follows:
+
+
+ a. Dispatcher selects the process for running (dispatch).
+
+ b. The running process is stopped and put back to the ready state so that another process can run. This happens after the quantum time expires (quantum_time_out).
+
+ c. Process voluntarily gives up the CPU (blocks). This normally happens after the  process initiates an I/O operation and has to wait for an event.
+
+ d. The process is no longer blocked as the event upon which it was waiting has  occurred. The process goes to the ready state (wakeup).
+
+Note, when a process is finished it exits the system from the running state.
+    
+
+PROCESS CONTROL BLOCK
+
+
+Associated with each process is a data structure referred to as a process control block (PCB) or a process descriptor. The PCB is an abstract representation of the process. The PCB contains all the process status information necessary so that any process can leave the CPU (quantum-time-out or block) and can later resume execution without losing control. All process status information must be retained following a context switch.
+
+In some systems the PCB is known as a TCB (Task Control Block).
+  
+Simple Process Control Block:
+
+
+
+CONTEXT SWITCHING
+
+The CPU is said to operate in the context of a process. The context defines the environment for the CPU while it is running one particular process. When the CPU runs another process it executes in the context of the other process. The operating system must save enough status information for a process so that it can at a future time switch back to an earlier process and continue execution at the point where it left off. It does this by saving the necessary status information for a process in the context section of the process PCB (see diagram).
+
+The switching from one process to another is normally done under interrupt control. When a process is switched from the ready state to allow another process to run some specific steps are required. As an example assume that process A is running and process B is to be switched in as the running process :
+
+( More detail on the scheduler, dispatcher, pre-emption and quantum will be given later to show more detailed operation)
+
+
+1) On receipt of an interrupt the processor will save the machine status to 
+       process_A's PCB.
+ 
+2)   Other status information (e.g. open files) is stored to process_A's PCB.
+ 
+3)  The dispatcher will select the next most suitable process to run, process B in
+       this example.
+ 
+4) Process_A's  PCB is put to the ready queue.
+              Process_A's PCB pointers are updated to set its queue position and the PCB state
+              field is updated. (If process_A had, in fact, finished processing, its PCB would
+              now be freed up). 
+ 
+5) Process_B's PCB state field is set to running. The machine status and other 
+information from process_B's PCB is restored (context is switched). Process_B
+can now continue execution from the point where it left off at its previous context switch.
+
+PROCESS QUEUES
+
+The operating system will maintain a list of all existing processes in a central process table, consisting of process PCB entries. Using pointers a number of separate queues can be established within this table.
+
+Only one process may be in the running state at one time.
+
+A number of processes may be in the ready state and a number of processes may be in the blocked state at any given time.
+
+The processes in the ready state are maintained in a ready-to-run list. The processes in this list are ordered by priority (assuming priority is supported – will be explained later..) so that the process at the head of the list is always the next process to run.
+
+Where there is more than one blocked process awaiting the same event, the blocked processes may also be maintained in some priority order although it is common to queue blocked processes on a first-come-first-served basis. The can be several blocked queues, each queue corresponding to an event being waited upon.
+
+EXAMPLE QUEUES. This is a snap shot of a system at some point in time.
+
+
+These queues are shown in more detail below where the PCBs are organised in logical queues to represent the system processes. Note, it is common to arrange logical queues so that the running process is at the head of the ready queue.
+
+
+
+
+LOGICAL QUEUES 
+
+CONCEPTUAL VIEW OF QUEUES FROM PREVIOUS EXAMPLE
+
+
+
+CREATION OF A PROCESS
+
+A process is created with a name and an initial priority level. A PCB is generated and inserted in the process table. The process resources are allocated.
+
+Processes are most often created by one process spawning another process. An identical copy of the calling process is thus created. The calling process is referred to as the parent process and the newly created process is referred to as the child process. A child process can spawn new processes. In this manner a whole tree of processes can be created. Each process will have only one parent but any process can have a number of child processes.
+
+
+
+DESTRUCTION OF A PROCESS
+
+When a process is destroyed it is removed from the system tables. The process’ PCB is removed. Some operating systems destroy all of the parent's child processes when the parent process is removed. Other operating systems will allow child processes to continue to exist in the absence of the parent process. A child process without a parent is referred to as an orphan process.
+
+
+SUMMARY OF TPICAL OPERATIONS WHICH CAN BE PERFORMED ON A PROCESS
+
+
+      - Create a process ( )				- Destroy a process ( )
+
+      - Set priority for a process ( )			- Dispatch a process ( )
+
+      - Block a process ( )				- Wakeup a process ( )
+
+      - Suspend a process  ( )			- Resume a process ( )
+
+
+
+SUSPENSION OF A PROCESS (LOAD BALANCING)
+
+The operating system can temporarily suspend a process, usually for just a short period of time. This is usually done to reduce system loading at peak times. The operations SUSPEND and RESUME are used. Two new states are introduced, the SUSPENDED_BLOCKED state and the SUSPENDED_READY state. See diagram below. The technique of shedding some processes to the suspended states is referred to as LOAD BALANCING where the scheduler protects a busy system from being overloaded with active processes.
+
+The additional state transitions to support the suspended states are as follows:
+
+e  A running process may suspend itself (in a multi-processor system a running process may be suspended by a running process on another processor). The process makes a state transition to the suspend_ready state. It is more usual not to support this transition in real implementations.
+
+f  A process in the ready state may be suspended by the running process. The process
+    makes a state transition to the suspended_ready state.
+
+g  A suspended_ready process can transition to the ready state following a resume
+    operation
+
+h  A blocked process may be suspended by the running process. The process makes a state transition to the suspended_blocked state.
+
+i  When a suspended_blocked process becomes unblocked it makes a state transition to the suspended_ready state.
+
+j  A resume operation can be used to transition a suspended_blocked process back to the blocked state.
+
+
+  
+
+
+SCHEDULING
+
+
+PRE-EMPTIVE AND NON-PRE-EMPTIVE SYSTEMS
+
+In a pre-emptive system, a process in the running state can be forcibly rescheduled at the end of its quantum time, or before it has run to the end of its quantum time. In some systems any process is allowed to run for the duration of the quantum time before pre-emption is enforced. A process can also surrender the CPU before the quantum time expires. In some real-time systems the pre-emption of the running process is enforced when a process becomes ready which has a higher priority than the current running process. For example an interrupt from an I/O device may occur which causes a high priority blocked process to go the ready state. The running process is pre-empted and positioned in the ready queue. The newly un-blocked process, now in the ready queue, is dispatched to become the running process.
+ 
+Some operating systems are non-pre-emptive where all processes are allowed to run to completion (unless they voluntarily give up the CPU). Such a non-pre-emptive scheme is sometimes referred to as co-operative multitasking. Some operating systems are designed to use a mix of pre-emptive and non-pre-emptive scheduling schemes. For example the UNIX/Linux operating system schedulers use pre-emptive scheduling for the user level processes and a non-pre-emptive scheme for the kernel level processes. 
+
+Pre-emption involves a process switching overhead and additional scheduling logic which lead to increased system inefficiencies.
+
+
+
+
+Pre-emption advantages:
+- Can provide somewhat more predictable response times
+- A process, or processes cannot be allowed to hog the system
+
+Non-pre-emption advantages:
+- lower switching overhead leading to more efficient operation
+- simpler scheduler logic
+- if required a process can be allowed to have control of the system
+
+
+
+
+THE NATURE OF PROCESSES
+
+Some processes are designed to act on I/O devices in a responsive fashion and other processes are not concerned with I/O activity but rather require processing time so as to operate efficiently. In general processes might be classed as being I/O bound or processor bound. Of course, many processes by their nature will require a mix of I/O activity and processor activity but it is useful to define here what is meant by I/O bound activity and processor bound activity.
+
+Processor bound activity
+Assumes that the CPU is the resource of prime importance and that when a process is assigned the CPU it will always tend to use the CPU for its full quantum time. This model does not consider the blocked state.
+
+
+
+
+
+
+I/O bound activity
+Assumes that the process makes frequent access to I/O and when the process gets the CPU it will make an I/O request during its quantum time and transition to the blocked state.
+
+
+
+
+QUANTUM SIZE
+
+Each process is assigned a time interval on the CPU, referred to as a time quantum. If a process runs to the end of the quantum it is pre-empted and the CPU is assigned to another process. Such switching from one process to another requires some time so that the current process status can be saved, the new process status can be loaded and any re-ordering of process queues can be done as might be required. This switching time is referred to as the context switch time (process switch). This context switch time is an overhead time as it does not contribute to useful processing throughput.
+
+e.g. quantum time            	 	= 10 msecs.     (useful work)      
+      context switch time  		=  1 msecs.      (overhead)
+      efficiency =   10 / (10 +1)  =  91%
+
+From the example it is clear that if the quantum was set to a higher value then the efficiency would improve. If the quantum was set to 100 msecs. then the efficiency would be:
+                   
+     100 / (100 + 1)  = 99%
+
+Thus high efficiency is realised by setting the quantum time to a high value. This is useful for long processes (processor bound activity) as the high efficiency maximises throughput. However, the long quantum time is not acceptable for interactive type systems. Consider an interactive system supporting a number of interactive user processes. If ten such processes were to require attention at the same instant in time, the last process to get serviced would have to wait approximately ten seconds (assume each process will take the full quantum time). Asking a user to wait for ten seconds for a response on an interactive system is not acceptable. It can be understood from above that a short quantum time is required for an interactive system so as to provide good user response. However, a long time quantum is required to maximise efficiency (and therefore maximise throughput) for long processes which require little user interaction (e.g.: Batch type systems). It will be seen later that some systems have a fixed quantum size, and other systems will have a variable quantum size to suit system requirements.
+
+
+
+ 
+
+ SCHEDULING OBJECTIVES
+
+
+Fairness
+All processes must be treated the same (within their assigned priorities). No process or set of processes can be postponed indefinitely. No process or set of processes can be allowed to 'hog' the system.
+
+Efficiency
+Aim is to keep the processor busy 100% of the time. Overhead time is to be minimised so as to allocate maximum time to processes.
+
+Throughput
+Goal is to maximise the number of processes serviced in a unit time.
+
+Turnaround time
+Batch users should not have to wait an unreasonably long time for jobs to complete.
+
+Response time
+Minimise the response time for user terminals. 
+
+Implement process priorities
+In priority type systems, the processes with higher priorities must be favoured.
+
+Allow graceful degradation
+System should not collapse as load increases either suddenly or gradually.
+
+Some of the above objectives can be contradictory. For example a batch user will want his/her jobs to run uninterrupted so as to achieve maximum throughput and low turnaround time whereas an interactive user will expect the system to interrupt processes so that a fast response is given. 
+
+In view of the contradictory goals, in real life a good scheduling algorithm must be tailored to satisfy some of the objectives so that a system is optimised for a particular type of use e.g. interactive or batch orientated. It is also possible to devise an algorithm which will attempt to optimise system behaviour so as to provide acceptable behaviour to both batch and interactive type processes (multimode system).
+
+
+
+
+ SCHEDULING POLICIES
+
+
+FCFS  ( First Come First Served)  
+
+Simplistic scheduling methods use a FCFS  ( First Come First Served) policy which is essentially a FIFO first-in-first-out discipline. Processes are positioned in the ready queue in the order in which they are submitted. There is no priority concept. There is no pre-emption. Processes run to completion once they get the CPU. The method is weak in that longer jobs can force short jobs to be delayed. The method is no good for interactive users. The FCFS policy is not common but the basic concept is often embedded in other schemes.
+ 
+
+
+SHORTEST JOB FIRST (SJF)
+
+In batch systems the estimated job run time is often known in advance. The ready queue is ordered based upon the running time for each process, placing the shortest process at the head of the queue. The scheme is non-pre-emptive which means that a process will run to completion once it has been assigned to the CPU. The advantage of the scheme is that the turnaround time on short jobs is minimised. 
+
+
+
+
+
+An advantage of the scheme is that the number of jobs waiting is reduced as each job is allowed to run to completion.
+
+For the SJF algorithm to work the run time for each job must be known in advance. This is not always possible and hence must rely on a user estimate of some historical data. The scheme is of no use for interactive systems as the run to completion time for processes will cause unreasonable delays. In any case for an interactive job, the run time is not predictable.
+
+Pre-emptive shortest job first is a modification of the algorithm where a new process which has a run time of less than the current running process causes the current process to be pre-empted in favour of the shorter job.
+
+An enhancement feature to the SJF method is to employ a priority mechanism so as to ensure that long jobs are not kept waiting indefinitely. The mechanism would periodically increase the priority of a process according its length of time in the queue. 
+
+
+Example to show optimisation of average turnaround time (SJF method)
+It is important to note that by running processes in the order of the shortest job first that the average turnaround time is optimised (minimised). This can be shown by example.
+
+The following batch system processes have the following run times which are known in advance.
+
+    Process P_1  takes    6 minutes to run 
+    Process P_2  takes    2 minutes to run
+    Process P_3  takes  16 minutes to run
+    Process P_4  takes  10 minutes to run
+
+a) Optimal sequence to minimise average turnaround time (SJF):
+
+ sequence           	P_2    	P_1    	P_4    	P_3
+
+ turnaround time  	2    	8    	18   	34   	average = 15.5 minutes
+ 
+
+  
+b) Sequence for worst average turnaround time (LJF):
+
+ sequence           	P_3  	P_4  	P_1  	P_2
+
+ turnaround time     16   	26   	32   	34   	average = 27 minutes
+
+
+Notes:
+1) The THROUGHPUT is 4 processes in 34 minutes regardless of the process sequence. It is the average TURNAROUND time, a  figure-of-merit for batch systems, which is optimised.
+
+2) Example assumes 100% efficiency, i.e. process switching times are not considered.
+
+ROUND ROBIN
+
+In the round robin scheme, dispatching is done as with the FIFO policy but each process is allowed to run on the CPU for a fixed time slice (quantum) only. If the process does not complete within the quantum time the process is pre-empted and the processor is then given to the next process in the queue. The pre-empted process is now positioned at the back of the queue. Thus a circular queue which is ordered by length of time since last service is created.
+
+
+
+
+
+
+The round robin scheme was devised for interactive systems since each user is guaranteed a reasonable response time (assuming a fairly small quantum size) and the run time duration of the process is not required to be known in advance. Today modified versions are used which employ priority queues (see later in text). 
+
+In practice simple round robin systems are vulnerable to sudden collapse under heavy loading. If the load (number of processes) becomes too great for the quantum size the performance can suddenly degrade. Some systems actually increase the quantum size as the load increases in an attempt to allow some of the processes to complete faster and exit from the system, thus reducing the load.
+
+Expected Round Robin behaviour
+MULTILEVEL QUEUES
+
+The round robin scheme, using a relatively short quantum size, offers good user response times, hence it is suited to interactive systems. However, for processing of long jobs, as is typical of a batch system, the use a larger quantum is more effective as it reduces the overhead of process switching and also it allows relatively short processes to clear the system faster. For example, a two level queue system could be used in a multimode system. Processes which do not complete within a fixed number of quanta are deemed to be long processes and are removed from the main queue into a background queue. Hence batch type jobs tend to fall into the background queue. The background queue is serviced only if there are no processes pending in the main queue. Thus short jobs are given priority so as to maximise response times for interactive users. In most implementations, processes which are run from the background queue are given a larger time quantum, so that when a processes is scheduled to run is gets a relatively long slice of CPU time.
+
+TWO LEVEL QUEUE EXAMPLE
+Note – there is only one CPU – dotted line CPU is logically the CPU
+
+The two level scheme can be extended into a multiple level queue. The early DEC System-10 operating system is an example of a three level queue, as shown. Note how the quantum time increases for the lower queues.
+
+         QUEUE                      QUANTUM  ( Quantum size is configurable ) 
+   
+   round robin queue 1               20 msecs
+   round robin queue 2              250 msec
+   round robin queue 3                2 secs
+
+
+
+
+THREE LEVEL QUEUE EXAMPLE
+
+
+
+MULTILEVEL FEEDBACK QUEUES
+
+The multilevel feedback queue [Kleinrock 1970] is designed to meet the following design requirements for multimode systems:
+  
+ o Give preference to short jobs
+
+ o Give preference to I/O bound processes
+
+ o Quickly establish the nature of the process and schedule
+     the process accordingly
+
+Multiple FIFO queues are used and the operation is as follows:
+
+- A new process is positioned at the tail of the top-level FIFO queue.
+
+- At some stage the process arrives at the head of the queue and is assigned the CPU.
+
+- If the process completes it leaves the system.
+
+- If the process voluntarily relinquishes control ( e.g. blocks on I/O) it leaves the queuing network and when this process becomes ready again it enters the system on the same queue level.
+
+- If the process uses all of the quantum time it is pre-empted and positioned at the end of the next lower level queue.
+
+- Lower level processes can be preempted to service a new process, or a recently awoken process.
+
+There is a different quantum size for each queue level, where the quantum values are larger for the lower level queues.
+
+There is normally a base level queue at the bottom where processes circulate in round robin fashion.
+
+The dispatcher will select jobs from the top-level queue as long as there are processes in that queue. If the top-level queue is empty the dispatcher selects from the next highest level queue and so forth. In this scheme the higher level queues are favoured for process selection but the processes from the lower level queues are allowed to run more efficiently once they are assigned the CPU. 
+
+Note, that unlike the simple MULTILEVEL QUEUE system where processes at a given queue level are given access to the CPU for a fixed number of times before they are forced onto a lower level queue, in the MULTILEVEL FEEDBACK QUEUE system a process is given just one chance to complete at a given queue level before it is forced down to the next lower level. The exception is, of course, a process which does not use all of the defined time quantum and such a process can regain entry to the same queue level. 
+
+
+EXAMPLE:   A MULTILEVEL FEEDBACK QUEUE
+
+
+
+
+
+
+
+
+Summary of decisions made by the scheduler for a running process:
+
+1) If a process completes within the quantum time it exits the system
+
+2) If a process does not complete within the quantum time it is passed to a lower level queue (or circulates to tail of bottom queue if already in this queue)
+
+3)  If a process volunteers to surrender the CPU and blocks, when awakened it will be 
+     added to the same level queue.   
+
+
+Does the Multi-Level Feedback Queue scheduler meet its objectives?
+
+It can be seen that the multilevel feedback queue does meet its objectives as follows:
+
+1) Favour short jobs
+Very short jobs, i.e. jobs which can complete within the quantum time at the top level queue, will be processed quickly as the top level queue is given preference. Slightly longer jobs may drop to the second or third level queues before they complete. Long jobs will fall to much lower level queues and may have to wait for long periods before they get service in a busy system. Thus the scheme inherently favours shorter jobs.
+
+2) Favour I/O bound processes
+The quantum time associated with the top level queue is chosen so that most I/O processes will have time to make the I/O request and then relinquish the CPU. This activity will keep the I/O process in the top-level queue and thus the I/O process receives the preferential treatment associated with the top level queue.
+
+3) Quickly establish the nature of the process and schedule it accordingly
+Interactive systems are associated with short processes and I/O bound processes for interactive control. Such processes will use the higher level queues as discussed. Processor bound processes will quickly drop down to the lower level queues, having spent only one quantum time running in each higher level queue. Eventually the processor bound process gets finished, even if it has to circulate in the lowest round robin queue for some time. Thus the scheme quickly separates the processor bound processes to the lower (or background) queues which have longer time quanta. Non-processor-bound processes are maintained in the top-level queues. So, effectively the scheme acts as a filter where the long processes are filtered down to the lower queues in a relatively short time.
+
+
+A DISADVANTAGE FOR THE MULTILEVEL FEEDBACK QUEUE SCHEME.
+In a busy interactive system processes in the lower level queues will tend to be ignored. A mechanism should be provided which would allow processes in the lower queues, which are not getting access to the CPU, to be given special attention so as to ensure that such processes are not ignored in the busy system. Later it will be seen that modern operating system schedulers do provide such priority boosting schemes for processes which do not receive CPU attention. Another disadvantage is tht it is not possible assign specific priorities to individual processes.
+
+PRIORITY BASED SCHEDULING
+
+The multilevel feedback queue system described above sorts a process through a number of queue levels based upon the amount of run time required by the process. Since the system always dispatches a process from the uppermost (non-empty) queue a type of priority system is realised based upon the time required for the process to run. Now we will look at priority scheduling where priorities can be pre-assigned to processes.
+
+The round robin system assumes that all processes are of equal priority. In practice it is important that a priority scheme is applied so that the criticality, or importance, of a process can be defined for appropriate treatment.
+
+Priority based systems often have the following objectives:
+
+
+a) Give preference to short jobs
+
+b) Give preference to I/O bound activity
+
+c) Give preference to processes which have been waiting a long time
+
+d) Give preference to processes which have been assigned a high priority
+
+
+Let's look at each one of these objectives in turn.
+
+
+a) Give preference to short jobs
+
+It has already been seen that scheduling short jobs to run first (i.e. SJF policy) reduces the average turnaround time and keeps long jobs from 'hogging' the CPU.
+
+
+b) Give preference to I/O bound activity
+
+Giving preference to I/O bound activity achieves good device utilisation and provides good response times for interactive users. Usually a process with I/O bound activity uses only part of the time quantum and then voluntarily relinquishes control. It is therefore important that such processes are given high priority. 
+ 
+c) Give preference to processes which have been waiting a long time
+
+To ensure that processes which have been waiting for a long time get service, a process’ priority could be dynamically increased as the process waiting time extends.
+
+
+d) Give preference to processes which have been assigned a high priority
+
+For effective system management a mechanism should be provided so that priorities can be predefined for each process. Thus the more important, or most time-critical, processes can be assigned higher priorities. 
+STATIC AND DYNAMIC PRIORITY ASSIGNMENT
+
+A static priority is assigned to a process when the process is created and does not change. The concept is simplistic, easy to implement, and does not require much operating system overhead to implement.
+
+Dynamic priorities respond to changes in the system. The priorities are allowed to be continuously updated so as to maximise the system responsiveness and throughput. Usually an initial priority is assigned to a process and this value changes during system operation. The dynamic priority scheme is more difficult to implement and adds to the system overhead; but the scheme is worthwhile as it allows the system to 'tune' itself towards achieving some defined system goals. 
+
+
+A STATIC PRIORITY SYSTEM
+
+Processes are grouped according to fixed priority levels. Priority scheduling is implemented among the levels. Round robin scheduling is implemented within each level. 
+
+As long as there are processes in the top-level queue, processes are selected from this queue and run for one quantum at a time in round robin fashion. If there are no processes in the top-level queue, processes in the second level queue are run in round robin fashion. If both the top level and the second level queues are empty, then processes in the third level queue are run in round robin fashion, and so forth.  
+
+
+
+DYNAMIC PRIORITY SYSTEM
+
+The problem with the above static (fixed) priority system is that processes at the lower priority levels may be starved of CPU time in a busy system. A fairer scheme would be to dynamically adjust the priorities so that the priority of a process which has been waiting for a long time is gradually increased (see UNIX example later in the text). Also – in some real-time systems it may be required to adjust process priorities based on various operating conditions and external conditions.
+
+
+Figure: A three level static priority system
+
+
+
+
+
+
+
+
+
+
+
+ EXAMPLE: PROCESS SCHEDULING FOR A UNIX-LIKE SYSTEM -
+
+The UNIX operating system is introduced in Appendix 2. The UNIX scheduler described in this section refers to the classical UNIX scheduler. This is the original scheduler. Various flavours of the UNIX operating system have attempted to modify the classical scheduler over time but the classical UNIX scheduler described here is useful to show the implementation of a real-world scheduler which has a fixed (static) priority scheduler for kernel level processes and employs a dynamic priority scheduler for user level processes. This dynamic scheduling is loosely based on the multi-level feedback scheduler model.
+
+General
+The diagram below shows the UNIX scheduler. The kernel level scheduler and the user level scheduler behave differently. Two priority classes are used - kernel and user. A threshold value is set between kernel level and user level priorities. The priority range is typically 0 to 100, 0 being the highest priority level. The threshold priority level, referred to as the base level priority, is typically set to a value of 60.
+
+Kernel level scheduler
+The kernel level scheduler is non-pre-emptive and processes are allowed to run to completion in a co-operative fashion. Since the kernel level processes will have been developed by the operating system designers they will be well-behaved processes with well understood behaviour. Hence the forced pre-emption feature can be discarded in the scheduler design. The kernel level scheduler used fixed priority levels where the process priorities are defined at the system configuration stage and do not change over time. The kernel level processes can make direct access to the system hardware.
+
+User level scheduler
+In the user level scheduler a process is allocated the CPU for a time quantum and is pre-empted at the end of that quantum time. The process is fed back into one of several priority level queues. 
+
+The example implementation in the diagram shows 41 priority levels in the user scheduler. Level 60, the base level, is the highest user level priority and level 100 is the lowest priority level. Each priority level can have a queue of processes logically associated with it. If several processes share the same priority level then the process which has been waiting in the queue for the longest time is selected.
+
+A process about to transition to the blocked (asleep) state is assigned a priority (hard coded) based upon the event upon which it must wait.
+
+
+
+DIAGRAM: UNIX PRIORITY STRUCTURE
+
+                
+
+
+Diagram for classical UNIX scheduler
+
+
+   The Microsoft WINDOWS  SCHEDULER
+
+The figure below shows a block diagram of a Microsoft Windows operating system. The process manager block controls the scheduling as described in this section.
+
+BLOCK DIAGRAM
+
+VDM: Virtual DOS Machine
+
+
+A brief history of Microsoft Operating systems
+
+See table below – to be developed.
+
+
+
+Year
+Major
+OS – 16 bit
+Major
+OS- 32 bit
+Consumer
+Major
+OS- 32 bit
+Business
+Win-32
+(32bit)
+64-bit
+version
+1982
+MS-DOS 1.0
+
+
+
+
+1983
+MS-DOS 2.0
+
+
+
+
+1984
+MS-DOS 3.0
+
+
+
+
+1985
+Windows 1.0
+
+
+
+
+1987
+Windows 2.0
+
+
+
+
+1988
+MS-DOS 4.0
+
+
+
+
+1990
+Windows 3.0
+
+
+
+
+1991
+MS-DOS 5.0
+
+
+
+
+1992
+Windows 3.1
+
+
+
+
+1993
+MS-DOS 6.0
+
+
+
+
+1993
+
+
+NT 3.1
+Yes
+
+1994
+
+
+NT 3.5
+Yes
+
+1995
+
+Windows 95
+
+Yes
+
+1996
+
+
+NT 4.0
+Yes
+
+1998
+
+Windows 98
+
+Yes
+
+2000
+
+Windows ME
+Wind- 2000
+Yes
+
+2001
+
+Windows XP
+Windows XP
+Yes
+Yes
+2003
+
+
+Server 2003
+Yes
+Yes
+2006
+
+Vista
+Vista
+Yes
+Yes
+2008
+
+
+Server 2008
+Yes
+Yes
+2009
+
+Windows 7
+Windows 7
+Yes
+Yes
+
+
+
+Xenix
+1979 - Microsoft bought a UNIX Version 7 licence from AT&T. In 1980 it announced that it was working on a 16-bit OS called Xenix. The Santa Cruz Operation (SCO) was contracted to do the initial port of Xenix on the 16-bit Intel 8088/8086 processor. 
+
+OS/2
+In 1987 Microsoft and IBM jointly launched OS/2, which was a true multitasking 32-bit operating system. 
+
+Windows CE
+Windows CE (CE stands for ‘Embeded Compact’, but is sometimes referred to as ‘Consumer Electronics’) was developed by Microsoft for small poratble devices and other embedded applications. Windows CE is the basis for other Microsoft specialist operating systems such as: AutoPC, PocketPC 200x, Windows Mobile 200x, Smartphone 200x etc. 
+
+Generally, a process (or a task) is said to be a program that is in execution, within a defined processor environment. However, the Microsoft Windows scheduler is based on the threaded model.
+
+Windows Process
+The process is the traditional process based multitasking scheme where the process represents the program in execution. The process environment, in terms of memory usage, registers etc., is defined for the process and the actual executing code is referred to as a thread of execution. Thus for any operating system’s process, we could refer to the execution of code as the thread of execution. Thus a traditional process would have a single thread of execution. 
+
+Windows Thread
+In the Windows operating system a thread is a dispatchable unit of program execution, thus any process must have at least a single thread. However, Windows allows a single process to have multiple threads. Windows  allows the multitasking of threads so a single process can have a number of threads executing simultaneously (in a time-sliced manner).
+
+Consider a conceptual view of three processes: Process A, Process B and Process C. Process-A has a single thread shown as Thread-A1. This is just like any conventional process – just that the execution thread has been highlighted by drawing it as a separate circle. Note, Process B has three threads and Process C has two threads. The scheduler will schedule activity at the thread level. If, for example, execution switches from Thread A-1 to Thread B-2 then there is a process context switch as we have switched from Process A to Process B. However, a thread switch from Thread B-1 to Thread B-3 does not involve a process context switch as we have switched threads within the same process. Thus thread switching within the same process  does not incur the overhead of a context switch in terms of time. This is one advantage in using threads. In a sense threads are similar to lightweight processes, or POSIX pthreads, in the UNIX/Linux operating system environment.
+
+
+
+
+
+
+
+
+
+
+
+Microsoft Windows Thread Scheduling
+
+The Microsoft Windows Thread Scheduler (sometimes referred to as the dispatcher) is responsible for the multitasking scheduling activity. By scheduling threads, processes are inherently scheduled as threads which belong to processes. The thread scheduler is a pre-emptive scheduler supporting 32 priority levels, where 31 is the highest priority level and 0 is the lowest priority level. Some dynamism exists in the priority scheme as will be explained below.
+
+32 Priority Levels
+The priority levels 16..31 are assigned to the so-called real-time activity and require special administrator access. Prioritiy levels 1..15 are used by normal user programs and dynamic priority is supported. Note, priority level 0 is a special system idle priority level, reserved for a system background task for zeroing memory pages etc.
+
+A process is assigned a Priority Class from one of the following:
+
+Priority Class
+Priority level
+REAL-TIME
+24
+HIGH
+13
+NORMAL
+8
+    IDLE
+         4
+
+An individual thread is assigned a priority relative to its process class, where the relative priority can be within a range of +2 to –2 about the process class priority, as follows (there are additional priority classes which are not shown):
+
+Highest
++2
+    Above normal
+        -1
+Normal
+0
+Below Normal
+-1
+Lowest
+-2
+
+Time Quantum
+The Server operating system configurations use a typical time quantum of 120 ms. The Workstation operating system configurations use a time quantum of 20ms., 40 ms.
+
+Dynamic Priority Operation
+The dynamic priority operation applies to the priority level range 1..15. Activity requiring fast response time for users (e.g. keyboard or mouse) can use a special priority-boosting scheme. There is also a starvation prevention policy which allows low priority threads to get processor attention.
+
+PRIORITY BOOSTING
+Priority boosting applies to threads with priorities in the range 1..15. For example a blocked thread waiting for the keyboard or a mouse input will be boosted by  +6 priority levels (up to but not exceeding priority level 15) when the keyboard or mouse event happens. Subsequently, the boosted priority will decay to the pre-assigned level because the thread’s priority level is decreased by 1 every time the thread completes execution for one time quantum. This priority boosting feature can be disabled if required.
+
+STARVATION PREVENTION
+Windows Win-32 employs an “anti-CPU starvation” policy within the 0..15 priority range. If a thread has not been executed in a 3 second period then that thread is boosted to priority level 15 and is allowed to run for 2 time quanta. The thread is then reverted to its assigned priority level.
+
+SPECIAL CASE PRIORITY MODIFIERS
+There are also special case priority modifiers, as follows:
+
+- A time critical thread can be boosted to priority level 15 (31 for Real-time).
+- A thread can be put idle at priority level 1 (16 for Real-time).
+
+Note on Real-time Activity
+The higher priority levels, 16 .. 31, are referred to as real-time priority levels. Many of the system level processes/threads are executed within these priority levels while the general user level processes/threads are executed in the 1..15 priority range. The term real-time implies that the higher priority level environment will get favoured processor attention for the processes/threads in the 16 .. 31 range, and thus such processes/threads will be more likely to meet their various time deadlines so that any time critical requirements are satisfied. However, such deadlines are not guaranteed to be met within the operating system. A proper real-time operating system should be able to provide such guarantees to meet all temporal deadline requirements. 
+
+Priority Operation
+The scheduler picks the next thread to run from the highest non-empty queue. If more than one thread is queued at the given priority level then the thread at the front of the queue is selected first. If a thread is pre-empted by the scheduler before its time quantum completes then that thread is placed at the same priority level in the front of the queue.
+
+Priority Inversion Problem
+The priority inversion problem (described later in these notes) is resolved in Microsoft NT, 2000 and Windows XP by randomly boosting the priority of low-level threads which are ‘lock holders’. The Windows 95/98/ME operating systems boost the low priority thread, which is holding the lock, up to the priority of the thread which is dependent on this lock.
+
+NOTE: Multiprocessing (multiple processors) scheduling is supported within the operating system, realising a more complicated scheduling scheme. Discussions in these notes are confined to single processor scheduling only.
+
+
+
+
+
+PRIORITY LEVEL DIAGRAM
+Level 0 is the lowest priority and level 31 is the highest
+
+
+NOTE: The exact implementation scheme may vary with different implementations e.g.: Windows ME, Windows XP, Vista etc. etc. Post Windows NT-4, two additional priority classes, Below Normal and Above Normal were introduced.
+
+ Section A:  Addendum 1
+
+
+SAMPLE SHORT QUESTIONS
+
+
+
+INTRODUCTION
+
+1)  Give a definition for a computer operating system. 
+
+2)  What does the term POSIX mean is respect to the UNIX/Linux operating
+      system and what is its significance? 
+
+3)  Draw a simple block diagram of a Linux operating system and briefly say what is the purpose of each major block in the kernel.   
+
+4) Assume a system, at a given instant, has one running process, three ready processes, two blocked processes on blocked queue_x and one blocked process on blocked queue_z. Draw the queuing structure at this instant, showing in your diagram how the queued PCBs are linked using the relevant PCB fields. 
+
+5) With the aid of a state diagram show the various states for a process in a multitasking system which supports load balancing (i.e. includes the suspended states). Label clearly all state transitions. 
+
+6) Draw a typical PCB (process control block) for a process in a multitasking environment and briefly state the purpose for each field in your PCB. 
+
+
+SCHEDULING
+
+1) Briefly state what is meant by the following types of process activity: 
+- Processor-bound activity
+- I/O bound activity
+
+2) Briefly describe a simple SJF (Shortest Job First) scheduler and state its advantages over a FCFS (First Come First Served) scheduler. 
+
+3)  Draw a diagram or a Round Robin scheduler and state one advantage and
+     one disadvantage for this type of scheduler. 
+
+4) Describe the operation of a Multi-Level Feedback Scheduler for a single-processor multi-tasking system. Use a diagram to show how the queuing structure is arranged. State one disadvantage to this scheme. 
+
+
+
+5) For the classical UNIX scheduler, answer the following: 
+
+a)  UNIX treats kernel mode and user mode processes differently. Write a YES or a NO into each cell of the table; as appropriate to correctly describe the scheduling behaviour.
+
+mode
+Pre-emptive
+scheduling
+Fixed priority
+scheduling	
+Hardware
+access allowed
+More than one
+process can queue
+at a given priority level
+Kernel mode
+
+
+
+
+
+User mode
+
+
+
+
+
+	
+b) What is the range of priority numbers for the kernel processes? 
+
+c) What is the range of priority numbers for the user processes?
+
+
+
+
+
+6) For the MS WINDOWS (Win32) scheduler, answer the following:
+
+a) Draw a block diagram for the user level environment of the Microsoft Windows Win-32 operating system. About ten blocks are expected. 
+
+b) Draw a block diagram for the kernel level environment of the Microsoft Windows  Win-32 operating system. About ten blocks are expected. 
+
+c) What in meant by the ‘WIN-32’ interface?
+
+d) With respect to the Microsoft Windows Win-32 scheduler, please answer the following:
+     									
+- How many priority levels exist in the scheduler design? 
+-    What is a thread? 
+-     If a process has a nominal priority level of 13 what is the highest
+      thread level  priority for that process?
+-    Briefly describe what is meant by starvation prevention in the context
+     of   the Microsoft Windows scheduler? 
+-    State a typical pre-emption time quantum for the Microsoft Windows
+      scheduler in: 1) a Server configuration and 2) in a Workstation configuration.
+
+
+
+
+
+Section A:  Addendum 2
+
+A Brief History of Unix
+D.Heffernan
+
+During the 1960s, an experimental operating system called Multics (Multiplexed Information and Computing Service) was under development under the partnership of: AT&T Bell Labs, General Electric and MIT (Massachusetts Institute of Technology). This new operating system was being developed to run on General Electric’s GE-645 computer. This was not a pure research project – but rather the intention was to develop a competitive, commercial operating system. AT&T Bell Labs withdrew from the project in 1969. However, a computer scientist at AT&T Bell Labs, Ken Thompson, along with Dennis Ritchie, continued to develop a very much scaled-down version of this operating system. One of Thompson’s  personal motivations was to develop an interactive computer game, called Space Travel. 
+
+The General Electric GE-645 was a mainframe computer. At that time, in the late 1960s, the new so-called ‘minicomputers’, from companies such as Digital Equipment Corporation and Data General, were gaining some prominence as low-power, relative low-cost computing platforms. Digital Equipment Corporation’s PDP-7 computer was a current minicomputer of the time. Ken Thompson and Dennis Ritchie wrote the space travel game in assembly language on the PDP-7. They developed a relatively small operating system, for the PDP-7, based on the experience, which they had gained from the Multics project. Bell Labs then allowed them to lead a small team to further develop this operating system concept. In 1970 this project was referred to as the Unics (Uniplexed Information and Computing System,) project. Brian Kernighan coined this name as a play on the Multics name, as Multics was designed to do multiple operations, Unics was less ambitious, and would concentrate on single operations. The name Unics was then changed to Unix. Up to this point the Unix project work was not a strategic Bell Labs activity. However, Bell Labs had a requirement to develop text processing solutions to run on Digital Equipment Corporation’s new PDP-11/20 computers, so they assigned the Unix developers to work on this project. Under this project the text formatting program roff and a text editor were developed. Bell Labs required this text processing facility to process their patent application documents. The roff program soon developed into troff, which was a typesetting publishing application.
+
+By 1973 the basic UNIX operating system was operational and Bell Labs wanted to port UNIX to other types of computers. Thus it was decided to rewrite UNIX for the PDP-11/20 computer in the new C programming language. The C programming language was developed by Dennis Ritchie of Bell Labs. The name of the language was derived from an earlier language called B, developed by Thompson, which was somewhat based on the BCPL language. Almost the entire UNIX kernel was rewritten in C. This meant that UNIX could be ported to almost any system that supported a C compiler.
+
+Bell Labs, under the ownership of AT&T, did not market UNIX to commercial companies, as AT&T was prohibited from selling computer products, under the 1956 ‘Consent Decree’ antitrust laws. However, UNIX was made available to universities under an educational licence. In the late 1970s, John Lions published a book, Lion’s Commentary on UNIX, which included the UNIX source code in C. The availability of this code made UNIX an attractive operating system for universities for use in teaching and research. 
+
+Bell Labs released various user manuals for the UNIX operating system, and they updated the version of the user manual for each major release of the operating system. The version numbers of the user manual became the designations for UNIX versions e.g. Unix Version 4, 5, 6 and 7. By 1982, Bell Labs released the UNIX System III product, which was based on the Unix Version 7.  Shortly afterwards, Bell Labs released UNIX System V that included more features. In the late 1980s, the System V, Release 4 (SVR4) became the baseline UNIX product.
+
+The University of Berkeley in California was one of the most significant developers of the UNIX operating system, outside of the AT&T Bell Labs research laboratories. Berkeley referred to their UNIX development work as BSD UNIX (Berkeley Software Distribution). The BSD UNIX researchers added many new features, which included the C shell and the inclusion of the TCP/IP networking protocol. As part of the TCP/IP support, Berkeley developed the well-known Berkeley sockets API, that is now universally used for Internet programming.
+
+By the mid 1980s there were essentially two UNIX camps: 
+       AT&T UNIX System V (Bell Labs)
+       BSD UNIX. 
+
+In 1980 Microsoft developed a UNIX operating system, which they called XENIX. The Santa Cruz Operation (SCO) later developed XENIX into SCO UNIX, in the late 1980s.
+
+One of the BSD developers at Berkeley, Bill Joy, was one of the founders of Sun Microsystems, in 1982. Sun Microsystems developed computer workstations running a UNIX operating system called SunOS. The SunOS operating system was later named Solaris.
+
+With so many different flavours of UNIX emerging, there was a need for some standardization. In 1984 an industry group established the X/Open consortium to standardise the UNIX systems, so that the different UNIX environments would be compatible.
+NeXT Computer, Inc. (later NeXT Software, Inc.) was founded in 1985 by Apple Computer co-founder Steve Jobs. NeXT developed the UNIX based NeXTSTEP operating system. 
+In 1988 the IEEE POSIX 1003.1 standard was published to define a standard UNIX application programming interface (API). 
+
+In 1988 the OSF (Open Software Foundation) was formed by a number of companies to develop an open standard for UNIX, based on BSD UNIX, running on the Mach kernel. A separate group called UI  (UNIX International) was established, with a mission to counteract the OSF. Thus, there were two separate UNIX industry-based groups, each one supporting a separate UNIX camp, as follows:
+
+UI (UNIX International) supporting AT&T’s UNIX System V
+(main supporters were: AT&T, Sun Microsystems and others.)
+
+OSF (Open Software Foundation)  supporting UNIX BSD
+(main supporters were: IBM, Digital Equipment Corp., HP and others.)
+
+By the 1990s, computer users expected graphical desktop environments, instead of the more antiquated text-based terminals. A number of industrial companies (IBM, HP, Sun Microsystems, and Novell) developed the proprietary Common Desktop Environment (CDE), based on the Motif Widget toolkit.
+
+In 1991 a number of the BSD developers at Berkeley set up their own company, BSD Inc. (BSDI), to develop a low-cost UNIX solution for Intel processors. Bill Jolitz left BSDI and produced free distributions of BSD, which later developed into Free BSD.
+
+1991 - Linus Torvalds commenced Linux development.
+
+In 1993 AT&T Bell Labs sold its UNIX rights to Novell, who developed UNIXWare, which merged its NetWare operating system with UNIX System V (SVR4). In 1995 Novell sold much of its UNIX interests to SCO (Santa Cruz Operation).
+
+In 1994 OSF and UI merged under the OSF name.
+
+In 1996 X/Open merged with OSF to form The Open Group, and released the ‘Single UNIX Specification Version 2’ in 1997.
+
+1999 – UNIX celebrates it 30th. Birthday! First Linux World conference.
+
+1999 - Apple introduces an UNIX based operating system, Mac OS X Server, based on the NeXT operating system. 
+
+In 2001 the ‘Single Unix Specification Version 3’ is released which includes the IEEE POSIX work. Linux 2.4 kernel is released.
+
+2003 Linux 2.6 kernel is released.
+
+In 2005 Sun Microsystems create Open Solaris by releasing the Solaris code as open source software. 
+
+In 2007 The ‘SCO vs. Novell’ case comes to a close, with courts giving legal owenership of the UNIX copyrights to Novell.
+
+	
+GNU and Linux
+In 1985 Richard Stallman (the author of the well-known UNIX emacs editor) and others formed the Free Software Foundation (FSF), to support the free software movement and in particular the GNU project (GNU is a recursive acronym for GNU’s not UNIX). Stallman had started the GNU project with the aim to develop free UNIX programs, and eventually a free UNIX. The free software is licenced through a GNU GPL (General Public Licence), which allows for the free distribution to the public. The work of FSF, to date, has produced a vast range of UNIX applications and tools. However, the creation of an UNIX-like kernel proved to be a huge challenge. A kernel project is in progress: GNU Hurd.
+
+However, in a separate development, in 1991, a student at the University of Helsinki, Linus Torvalds, started to develop an UNIX-like kernel. Linus had been experimenting with an educational UNIX-like operating system kernel, called Minix, but wanted to write his own kernel. Linus posted a message on an Internet newsgroup asking if anyone was interested in assisting him with the project, which was then just a hobby. Linus called his project ‘Linux’, based on the Linus and Minix word combination. Linus released his kernel (Linux 1.0), under the GNU GPL licence, in 1994. Although the Linux kernel is not a copy of UNIX and does not contain any of the UNIX code, it does comply with the POSIX interface specification, and thus supports the various UNIX tools and applications.
+
+
+
+SIMPLIFIED UNIX (LINUX) BLOCK DIAGRAM
+
+
+
+
+ 
+
+EE-6012  Processes. D.H. © 2000-11							A-1
+
+                                                                                                                                                                                                                                                                                                                  
+
+NTFS TUTORIAL
+
+D. Heffernan  UNiversity of LImerick
+
+NTFS is the current standard file system for Microsoft operating systems. NTFS was first introduced in 1993 as the file system for the NT operating system, hence the name NTFS (NT’s file system). NTFS evolved over the years with features added at each major release. Some important features are: compressed files, named streams, ACL-based security, disk quotas, encryption, sparse files, journaling, and advanced security features. Windows Vista added the following features to NTFS with operating support: symbolic links, transactional features, partition shrinking, self-healing features, and alternate data streams (ADS). ADS is a f

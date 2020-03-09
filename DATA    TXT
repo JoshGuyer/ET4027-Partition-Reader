@@ -1,0 +1,923 @@
+
+
+NTFS TUTORIAL
+
+D. Heffernan  UNiversity of LImerick
+
+NTFS is the current standard file system for Microsoft operating systems. NTFS was first introduced in 1993 as the file system for the NT operating system, hence the name NTFS (NT’s file system). NTFS evolved over the years with features added at each major release. Some important features are: compressed files, named streams, ACL-based security, disk quotas, encryption, sparse files, journaling, and advanced security features. Windows Vista added the following features to NTFS with operating support: symbolic links, transactional features, partition shrinking, self-healing features, and alternate data streams (ADS). ADS is a feature whereby a file can be associated with more than one data stream by having an alternative name, i.e. an ADS name.
+
+NTFS has seen five major versions, as illustrated in Table N1. Note, some documents incorrectly refer to NTFS versions by the NT release version numbers – such versions are shown in brackets.
+
+
+
+SOME FEATURES
+
+In NTFS everything is treated as a file. The file system does not have a defined physical layout in a volume like other files systems. Some of the NTFS features can be briefly introduced as follows:
+
+Disk Quotas. This is an optional feature. Quota management allows administrators to limit space usage and to keep track of how much disk space each user, or each volume uses.
+
+Sparse files. Files can often contain areas of empty space, typically long sequences of zeros. In NTFS such a file can be tagged as a sparse file and such files can be more efficiently stored if the zeroed regions can be defined. If a file is marked as sparse, disk clusters are allocated only for specified data ranges. Non-specified ranges of the file are represented by non-allocated space. When a sparse file is read, data is returned from the allocated ranges, and zeros are returned from the unallocated ranges.
+
+Volume mount points. This is similar to the mount points in UNIX/Linux, where file systems can be mounted without requiring a separate drive letter.
+
+Hard links. Hard links can be used for files on the same volume only.
+
+Hierarchical Storage Management (HSM). Files which have not been used for a long time can be transferred to a less expensive storage device. Such a file is retrieved again when accessed.
+ 
+Volume Shadow Copy (VSC). This is a service which allows files currently in use to be archived. For a newly written file, a fresh copy of a file overlays the older file so the original data can be archived as an older version, and the older version can be retrieved if required. 
+
+File compression. Files can be compressed with a variation of the LZ77 algorithm (like ZIP). Access to compressed files is transparent.
+ 
+Single Instance Storage (SIS). It is possible for different files in a file system to have identical content. Such identical files can be merged into a single file. A single file can be changed using a copy-on-write scheme. 
+
+Encrypting File System (EFS). Any file or folder on a volume can be encrypted, transparently to the user, using a fast bulk symmetric key, using the Crypto API.
+ 
+Symbolic links. These are introduced on the client side so that when a symbolic link is shared the file is subject to the access permissions of the client.
+
+Transactional NTFS. This was introduced in Windows Vista to allow an application to group the various file changes together into a specific transaction, and the transaction will happen atomically i.e. the full transaction will be committed or not committed. 
+
+USN (Update Sequence Number) Journal. This keeps track of changes to files and directories for a volume.
+
+
+
+INTERNALS
+
+The internal design of NTFS uses a Master File Table (MFT ) to store information on each file and directory on an NTFS volume. Each entry in the table is a file record that represents a unique file. The MFT will be described in detail later on.
+
+The NTFS name encoding feature uses a sequence of 16-bit values, and includes file names, stream names, index names etc. UTF-16 (Unicode) is supported.
+
+A directory entry consists of a filename and a file ID. The file ID is a record number for a file in the Master File Table. 
+
+Maximum Volume Size 
+The theoretical maximum NTFS volume size is 264-1 clusters. The maximum NTFS volume size in the Windows XP Professional implementation is 232-1 clusters. So if a cluster size is 4kB, then the maximum volume size is 16TB approx. However, partition tables on master boot record (MBR) disks only support partition sizes up to 2TB, so dynamic volumes must be used to create larger bootable NTFS volumes. 
+
+Resident data
+Small data files, typically less than 700 bytes in size, are usually placed within the master file table (MFT) –  and are referred to as "resident data" files.
+
+PartitionsNTFS supports conventional PC disk partitioning, using primary or logical partitions, and logical partitions that fit within an extended partition. 
+
+Cluster size
+NTFS defines default cluster sizes based on volume size. The maximum default cluster size is 4kB. Other cluster sizes can be defined.
+
+Files, directories and folders
+Directories are also called folders. NTFS considers everything to be a file. A file is a collection of attributes, which includes the descriptive information on a file as well as the file data itself. An NTFS directory is a file, which stores information about the directory itself. Every directory has an entry in the MFT. A directory can have multiple file name attributes, to support the regular name of the file, the MS-DOS short filename, POSIX-like hard links etc. A directory includes a Security Descriptor (SD) Attribute to hold security information to control access to the directory and its contents. The directory's access control lists (ACL) are stored here. 
+
+NTFS directories use a B-tree management structure to improve performance, the time required to find a given file is significantly reduced as compared to an unsorted linked-list structure.
+
+Security
+File system security is concerned with the concept of assigning rights to specific users or groups of users. An NTFS volume’s access rights for files and directories are assigned based on the user or group accounts. A user can be a member of a number of different groups. The Administrators group has higher access rights.
+
+NTFS security supports further concepts such as ownership, permission inheritance and auditing, which can be briefly listed as follows:
+
+o Ownership. A special property right for NTFS objects that gives file owners the authority to grant permissions to others.
+
+o Permission inheritance. Allows permissions to be assigned to groups of objects automatically, including permissions to new files that are created within an existing directory structure.
+
+o Auditing. Administrators can monitor changes to files or directories.
+
+
+Access Control Lists (ACLs) and Access Control Entries (ACEs)
+The MFT record for each file and directory contains a security descriptor (SD) attribute. The SD has a set of lists to define which users can access the object and with what rights. Such lists are referred to as ACLs – access control lists, which will be described later..
+
+
+
+
+NTFS Logging (Journaling)
+
+NTFS supports a file system journaling feature, which Microsoft refers top as a logging feature. This logging feature is based on transactional operations. To understand transactional operations, consider normal processing involves acting on numerous files and at any given time various files can be open with read and write activities taking place. It is important that the correct sequence of read and write operations take place. If the operations get interrupted the file system can be left in an inconsistent state. For example clusters might have been allocated to a file but never linked to that file. NTFS is a transactional file system, designed to manage such problems. A transaction is any operation that can make a change in the file system, e.g. a change in a file's data or attributes, or a change in the volume's metadata files.
+
+NTFS maintains a special activity log, implemented as a metafile, the $LogFile. All changes are recorded in this activity log including the creation, deletion, or modification of files or directories. A given transaction is not complete until all of its changes are complete. Once a transaction is complete the transaction is said to be committed. Transactions are given a 64-bit sequence number called the logical sequence number (LSN).
+
+If the transaction is interrupted before it completes, e.g. in a power failure situation, the system will, based on the information in the activity log, cause the partially completed transaction can be undone. This operation is referred to as a roll back operation. Data loss can occur but the files will be left in a consistent state. This feature is part of the NTFS recovery procedure.
+
+To support such a recovery, NTFS records the metadata operations of a transaction to a cached log file in memory and marks that log file as committed. The log file along with the actual metadata operations is flushed to disk, at a convenient time, before the metadata that is modified in the transaction is written to disk. NTFS commits the transaction, noting in the cached log file that the transaction is complete. If a failure occurs, NTFS will have sufficient information in the log file to complete or abort any partial transaction.
+
+NTFS uses a feature called checkpoint functionality, where every n seconds, a checkpoint is written to the activity log. These checkpoints represent a point in the log where the recovery process does not have to scan back beyond that point, to avoid scanning the entire log file. A three-pass recovery procedure is executed using the log entries back to the last checkpoint, as follows:
+
+o Analysis pass: the contents of the activity log are examined to determine what parts of the volume need to be corrected. 
+o Redo pass: all completed transactions since the last checkpoint are redone.
+o Undo pass: all incomplete transactions are rolled back to ensure file integrity.
+
+
+
+Change Journal
+A system can be enabled to record all changes made to the volume in the Change Journal. The change journal is a database that lists all changes made to each file and directory, where a separate record is made for each change. A separate journal is maintained for each NTFS volume. For each change made to the volume, a record is added to the journal file. A 64-bit Update Sequence Number (USN) identifies each record. A record includes the filename, time-of-change and the type of change. The Change Journal entry indicates that a change occurred, e.g. the data was written, but does not include the contents of the data itself. If the change journal becomes too big, then the oldest records are discarded.
+Fault Tolerance
+NTFS includes several fault tolerance features. Some of the NTFS fault tolerance and error-handling features can be listed as follows:
+ 
+o Software RAID support
+
+o Transactional recovery feature
+
+o Dynamic Bad Cluster Remapping
+
+
+Compression
+NTFS supports file-based compression to compress individual files, or all files in a folder, or all files in a volume. The compression is performed by the operating system during writes, and decompression is automatic. Performance can be degraded using compression. NTFS compression assumes NTFS volumes that use a cluster size of 4kB. Microsoft recommends that only the $DATA attribute should be compressed and only when it is non-resident. A compressed file or folder has its attribute, FILE_ATTRIBUTE_COMPRESSED, set. NTFS decompresses only the portion of the file that is being read and copies that data into memory in an uncompressed format. NTFS compresses file data only when the data are written to the disk.
+
+
+POSIX 
+NTFS includes POSIX.1 standard compatibility, but the feature is not well supported.
+
+
+Encryption
+NTFS security mechanisms work well in a normally-booted system. However, disk access using low-level disk utilities can be used to bypass parts of the security protection. NTFS supports an encryption capability. The Encrypting File System (EFS) scheme uses a public key and private key algorithm. EFS runs as a system service under Windows and interacts closely with the NTFS file system. 
+
+
+ADS - Alternate Data Streams
+An application can consider a data stream as a sequence of bytes, where the stream can be written to or read at specified offsets in the stream. Each file inherently has an unnamed stream. NTFS allows additional data streams which can be named. See Figure N1. An application can create new named streams, permitting various data streams to be managed as a single unit. For example, a file containing a picture image could also store a thumbnail image in a named data stream, within the same file.
+ADS can fork a file data into an existing file without changing the existing file’s functionality, size, etc. so the new stream is not visible to file browsing utilities. ADS was developed to allow compatibility with the Apple Macintosh’s HFS (Hierarchical File System), where file information can be forked into separate data streams.  An ADS can easily be created as a hidden file using the normal commands, for example:
+
+       type don.txt  >  don.txt:demo
+       more  <  don.txt:demo
+
+The first command will fork the don.txt file with an ADS “don.txt:demo” stream. The second command will output the contents of the new ADS. The only indication that the don.txt file was changed is in its modification time stamp, otherwise it would be difficult to know that the “don.txt:demo” stream  exists.
+
+
+Figure N1:    NTFS alternate data streams
+
+Short filenames 
+NTFS filenames can be up to 255 characters long. These are the so-called long filenames. NTFS also allows an MS-DOS-readable (8.3) name for each file. For each new file NTFS automatically creates a second file entry that has an 8.3 short file name format. To generate the 8.3 style name from a long filename, the operating system will first delete spaces, periods and other special characters from the long filename. The long filename is then truncated to six characters and a tilde (~) and a number are added. The file name extension is then truncated to three or less characters. File names in the 8.3 formats are displayed in uppercase at the command line. Example of a short filename generated from a long filename:
+
+Big Payroll Info.doc	 BIGPAY~1.DOC
+
+
+Reparse points
+The reparse points feature is implemented using objects called reparse points. An application can store data into a reparse point, and that reparse point is tagged with an identifier specific to the application and stored with the file or directory. If a file or a directory has a reparse point attached, the system calls a file system filter, indicated by the reparse point tag. The filter may implement any method of accessing the actual data.
+
+When a program attempts to open a file, it notes the reparse point associated with the file and then "reparses" the original request for the file, using the appropriate filter associated with the application that stored the reparse point. The filter can then use the data in the reparse point to support the functionality intended by the application. The reparse points are transparent to the user. On access the reparse point and the associated operations are carried out automatically to extend file system functionality.
+
+The Microsoft OSs use reparse points to implement special features such as: Symbolic Links,
+Junction Points, Volume Mount Points, Remote Storage Server (RSS) etc.
+
+Directory junctions
+When one links to a directory using a ‘reparse points’ mechanism, such a link is referred to as a directory junction.
+
+NTFS mounted drives
+Volumes can be attached to an empty folder on an NTFS volume. An attached volume is a mounted drive and is also known as a volume mount point or a drive path. The mounted drive then functions just like any other volume. The mounted drive is assigned a name, or a label, instead of a drive letter. A volume can host multiple mounted drives. Mounted drives are implemented by using reparse points, which are set up by user-defined data.
+ 
+
+Hard Links
+In creating a hard link to a file NTFS adds a directory entry for the hard link and does not duplicate the original file. The hard link is a directory entry for a file and an application can modify a file by using any of its hard links. Hard links do not have security descriptors, the security descriptor belongs to the original file to which the hard link points.
+
+
+
+
+SOME DETAIL ON INTERNALS
+
+Background
+
+Before we introduce the detail organisation of the NTFS file system, let’s first recap on the design approach for the FAT file system and the original UNIX file system. We will then see how NTFS was developed from some of these concepts.
+
+A FAT file system, which has been described in an earlier section of these notes, has a disk structure as shown in Figure N2a)  and an individual file is described as shown in Figure N2b), where a file’s directory structure is used to describe the file’s details. We say that a file contains actual data and that a file is described by its metadata, as shown in Figure Nb). 
+
+A UNIX file system, which has been described in an earlier section of these notes, has a disk structure as shown in Figure N3a)  and an individual file is described as shown in Figure N3b), where the inode is used to describe the file’s details. We say that a file contains actual data and that a file is described by its metadata, as shown. 
+
+
+
+
+a) FAT disk structure layout
+
+
+b) FAT file description
+
+Figure N2: FAT structure
+
+We will see later how NTFS makes extensive use of metadata structures to describe a file’s details.
+
+
+
+
+a) UNIX disk structure layout
+
+
+b) UNIX file description 
+
+
+Figure N3:  UNIX file system structure
+
+In the NTFS file system, every file in the system has a unique 1024 byte file record that describes that file. Such records are stored in a master file table (MFT).The MFT stores information about every file and directory on an NTFS volume. An MFT’s file record is analagous to the UNIX inode as the NTFS file record is used to fully describe a file. Figure N4 shows an empty MFT file record, showing the record header and an otherwise blank record. We will see how this record is filled with various attributes that will describe the various features of a given file.
+
+
+Figure N4:  An empty NTFS file record 
+
+Figure N5 shows how a MFT file record can be populated with attributes to define the required characteristics of the file. The various types of attributes will be described in some detail.
+
+
+Figure N5:  MFT file record is populated with attributes
+
+An MFT file record
+
+Each entry in the MFT is referred to as an MFT file record, or simply an MFT record. When a new file or directory is created a MFT file record is created for it in the MFT to store information about the file or directory, in the form of resident attributes. The size of the MFT file record is defined in the boot sector but in practice the MFT file record is 1kB (1024 bytes) in size, where the first 42 bytes are defined as 12 fields in the MFT record header, and the other 982 bytes are unstructured and are used to store attributes such as the file name, file’s content etc. If more space, beyond one MFT file record, is required for the attributes then so-called non-resident attributes, as will be described.
+
+Figure N6 shows an example of a single MFT file record entry. An attribute is a data structure to store a specific type of data. The attribute header is generic for all types of attributes and is used to identify the type of attribute, size, flags etc. An attribute name is optional. The attribute content can be of any format and size, where a non-resident attribute would be used to store the attribute content for a large file. A non-resident attribute’s content are stored in cluster data runs. 
+
+
+
+
+Figure N6: MFT file record structure
+ 
+The MFT record header is the first field of the MFT file record and will normally have a signature which is the ASCII string “FILE”. A bad MFT record would have the signature “BAAD”. A flag field indicates if the record is in use and if the record is a directory. 
+
+There is no distinction between the actual data in a file and the attributes that describe the file. The actual data is the contents of the ‘data attribute’. Hence small files require no additional space on the volume, beyond the single MFT file record. However, usually files are not very small and are thus non-resident, and their data are stored as non-resident attributes. If multiple MFT file records are used for a file the first entry is referred to as the base file record. 
+
+
+ATTRIBUTES 
+
+Let’s look at the attributes in more detail. We saw that an MFT file record’s structure is defined by the attributes which it stores. An attribute is a data structure for a defined type of data. An attribute has two sections, as shown in Figure N7, a header and the actual content information, which can be of any size. 
+
+
+
+Figure N7:  An attribute has a header and content
+
+Table N2 shows some example standard attribute types. A type identifier number and a type name are defined for each type. The attributes are sorted in a MFT file record based on the type number. A standard attribute’s default type can be redefined
+
+
+Type
+identifierName Description16$STANDARD_
+INFORMATIONInformation e.g. flags, timestamps, ownership, security etc.32$ATTRIBUTE_
+LISTThe locations of attribute records that do not fit in the MFT record.48$FILE_NAMELong and short file names are supported. This is a repeatable attribute. Timestamps are included.64$OBJECT_ID16-byte unique identifier for objects.80$SECURITY_
+DESCRIPTORSecurity and access info. for a file.96$VOLUME_NAMEThe volume’s name122$VOLUME_
+INFORMATIONFile system version, various flags etc.128$DATAThe file contents. More that one $DATA attribute per file is possible. Typically a file has one unnamed data attribute.144$INDEX_ROOTRoot node for directories (typically)160$INDEX_
+ALLOCATIONNodes of a B-tree structure176$BITMAPBitmap for indexes and for the $MFT file192$REPARSE_POINTReparse point to define soft links etc.256$LOGGED_UTILITY
+_STREAMInformation for encrypted attributes.Table N2:  Example attribute types
+
+
+Attribute structure
+
+Figure N8a) illustrates a file’s MFT record, showing three attributes. Note the attributes are sorted in order (i.e. 16, 48, 128), based on the type identifier numbers. This example represents a typical file, where some standard information, e.g. timestamps etc., is listed in the $STANDARD_INFORMATION attribute, the file name is listed in the $FILE_NAME attribute and the unstructured content is listed in the $DATA attribute. This example is for a resident file, as all the information is contained within the MFT file record. Here the $DATA attribute content is typically less than 700 bytes in size. If the file was to grow in size, then a non-resident attribute might be required as shown later.
+
+Figure N8b) shows the file’s MFT record again, but here the metadata and the actual data content area are highlighted.  
+
+The $DATA attribute is used to hold a file's data – as the unnamed data stream. The file's size is the size of its unnamed data stream. The $DATA attribute has no defined minimum or maximum size. A $DATA attribute simply has a standard attribute header followed by any stream of data. Additional $DATA attributes can add named streams, i.e. alternate data streams.
+
+If the file has a large number of attributes more than one record might be required, the first record for the file, the base file record, stores the location of the other file records for that file.
+
+All attributes include a standard header to store information on the attribute's name (optional), type, size, and to indicate if it is resident, or not. A flag’s status is also included to indicate if the attribute is compressed, encrypted or sparse. Note, only the data attribute can be compressed or sparse, and this is only when it is non-resident.
+
+The data structure for an attribute header in a resident file is shown in Table N3. Note, the data structure for a non-resident attribute header has some different information, as it has to store cluster run information. The table entries describe the attribute showing its type, length, and location of the name. The length is used to calculate the next attribute. If this is the last attribute the value 0xffffffff is in the length field. The offset to the name is relative to the start of the attribute. The Attribute identifier number is unique within a file record, where each file record has an Attribute Id. Once an Attribute Id is assigned to an attribute the next Attribute Id assigned in that MFT record is an incremented Attribute Id. When an MFT record is reused the Attribute’s Id is reset to zero. 
+
+
+
+
+a) The file’s MFT record
+
+
+
+b) Highlighting the metadata and the data content
+
+
+Figure N8: MFT entry with three attributes
+
+
+BytesDescription0 .. 3Attribute type identifier4 .. 7Attribute length8 .. 8Non-resident flag (1 for non-resident)9 .. 9Length of the name10 ..11Offset to name12 ..13Flags14 ..15Attribute identifier16 ..19Size of the content20 .. 21Offset to the content
+Table N3: Attribute header data structure for a resident attribute
+
+
+NTFS CLUSTER NAMING CONVENTIONS
+
+In general, for file systems, the logical block address is used to address individual blocks within the full file system. In NTFS the Logical Cluster Number (LCN) is the same as this logical block address. In other file systems, the logical file address is the block address relative to the start of the file. In NTFS the Virtual Cluster Number (VCN)  is the same as the logical file address.
+
+So, in the NTFS file system, the LCN is used to number clusters throughout the file system. The LCN is a sequential number used to define each cluster in a volume. LCN 0 (zero) refers to the first cluster in the volume, i.e. the boot sector.
+
+Whereas the LCN is thus used to number clusters throughout the whole file system, the VCN is used to number clusters throughout a given file (i.e. a stream) relative to the start of the file. A non-resident stream is given a sequential number, the VCN, where VCN 0 (zero) refers to the stream’s first cluster.
+
+As an example consider Figure N9a) which shows a file system that contains a total of n clusters, which are numbered LCN 0 to LCN n. Hence the whole file system has its clusters numbered in LCNs. Now consider Figure N9b), where a single file consists of 9 clusters. The file is fragmented but it is a virtual stream of 9 consecutive clusters, so the term virtual cluster numbers, VCN, is used to identify the file’s clusters.
+
+
+
+
+
+a) A file system with a total of n logical clusters
+
+
+
+
+b) A 9-cluster file (stream) showing the stream of virtual cluster numbers
+
+
+Figure N9:  Logical clusters and virtual clusters 
+
+
+
+
+
+MFT Overview
+
+The Master File Table (MFT) stores information about every file and directory on an NTFS volume. Since NTFS treats everything as a file the MFT itself is a file, i.e. the MFT has an entry for itself, which is named $MFT. 
+
+The MFT is a set of file records, where each file in the volume is fully described by such a file record, just like an inode is used to describe a file in a UNIX file system. The first file record is called the base file record and any additional records are referred to as extension file records. A MTF file record includes a header, several attributes of variable lengths and an end marker.
+
+Figure N10 shows three consecutive MFT records from a random part of a full MFT. Here each file is represented by a single MFT record.
+
+
+
+ Figure N10:  Three consecutive records in the MFT
+
+
+Now we will look at the full MFT and how it is implemented in NTFS. The first entry in the MFT is the $MFT file record which describes the location of the MFT itself on the disk. This is the only description of the MFT’s layout and size. The start of the MFT is found in the boot sector, which is always the very first sector of the file system. Figure N11 shows the boot sector pointing to the start of the MFT and shows in the example how the MTF can be fragmented in contiguous cluster runs.
+
+Note, like other Microsoft file systems, in NTFS blocks are referred to as clusters, where a cluster is the fundamental unit of disk usage. The number of sectors per cluster is fixed when the volume is formatted. A 4kB cluster is assumed to be the typical cluster size.
+
+
+Figure N11:  Boot sector identifies MFT start and first MFT record maps the MFT 
+
+
+NTFS uses a 48-bit MFT file record address, or file number, to sequentially address MFT file records. This address is also referred to as the sequential address. There is also a 16-bit sequence number that is incremented when a MFT file record is allocated and reallocated. So, the full file record address is 64 bits long.
+
+
+
+
+
+
+METAFILES
+The MFT stores all of the file’s so-called metadata which includes the actual file contents, file name, access permissions, creation date, etc. The metafiles are used to define and manage the file system. An individual metafile is structured like an ordinary file. The metafiles are hidden as they are considered to be internal to the operation of the file system. There are 16 MFT file records reserved for the metafiles, where 12 are defined, as shown in Table N4. The MFT resembles a relational database table. Figure N12 shows the metadata files at the bottom 16 locations of a full MFT.
+
+
+
+Metadata
+fileName of FileMFT
+RecordDescriptionMFT – Master File Table$MFT0The MFT itself (information about MFT).MFT2 –Master File Table 2$MFT
+Mirr1This is a copy of the first 16 records of the real Master File Table.Log File$LogFile2This is the transaction logging file for the volume.Volume Descriptor$Volume3Information about the volume (partition) itself, e.g. name, creation time, etc.Attribute Definition Table$AttrDef4Names and descriptions of the types of NTFS attributes used on the volume. Root Directory / Folder"." 5Pointer to the root directory of the volume.Cluster Allocation Bitmap$Bitmap6Map to show which clusters are used and which are freeVolume Boot Code$Boot7Copy (or pointer to) of the volume’s boot code and boot sector. Cluster size is defined here.Bad Cluster File$Bad
+Clus8A list of all "bad" clusters on the volumeSecurity descriptors$Secure9Information on security and access control for files.Upper Case Table$UpCase10Table for converting file names, contains uppercase version of (16-bit) UnicodesExtensions$Extend11A directory of files for optional extensions.       The records 12 to 15 are reserved for future use.
+Table N4: MFT – Master file table
+
+
+
+
+Figure N12:  A full MFT showing the metadata files
+
+
+
+The $Boot file
+
+
+The $Boot metadata file is always represented by MFT record number 7, as can be seen in Table N2. The  $Boot file contains the boot sector of the file system, which is the only statically located file in the system. The $Boot file’s $DATA attribute is always at the first sector in the file system, and contains the boot code. A backup copy of the boot sector exists.
+Note the so-called ‘boot sector’ is a number of clusters in length. Figure N13 shows the $Boot file location on the disk and shows the backup copy at the end of the file system. The location of some of the other metadata files is also shown. Note, the locations of some of these files can be different for different Microsoft operating systems.
+
+
+
+Figure N13: NTFS file system showing loactions of the metadata
+
+
+MFT Record Header
+
+The MFT file records have been introduced above. The data structure for a basic MFT file record is presented in Table N5. As stated above, the string “FILE” is the standard signature value, “BAAD” is the signature if an error exists. The Fixup array’s offset is in byte positions 4..5 and the array is normally after byte 42. This offset is relative to the beginning of the MFT entry. The LSN in bytes 8..15 refer to the files system’s log (journal), which records metadata updates used for repair purposes. The Sequence value is next, indicating how many times the MFT record was allocated and deallocated. This is followed by the Link count field. Bytes 20..21 shows the offset value to the first attribute, the offset is relative to the start of the MFT entry. The Flags field has a value 0x01 to signify that the entry is in use and the value 0x02 to signify that the entry is for a directory. The Used size and Allocated size fields follow. Bytes 32..39 show a value of 0 if the entry is a base record, otherwise the MFT base record is referenced. Bytes 40..41 indicate the Attribute Id for the next attribute that is to be assigned to this record entry.
+
+
+
+
+BytesDescriptionEssential0 .. 3Signature ”FILE”no4 .. 5Fixup array’s offsetyes6 .. 7No. of entries in fixup arrayyes8 .. 15The $LogFile sequence num (LSN)no16 .. 17Sequence valueno18 .. 19Link countno20 .. 21Offset to the first attributeyes22 .. 23Flags (directory and in-use flags)yes24 .. 27Used size of the MFT entryyes28 .. 31Allocated size of the MTF entryyes32 .. 39File reference to the base entryno40 .. 41The next Attribute Idno42 .. 1023Attributes and fixup valuesyesTable N5: Data structure for a basic MFT record
+
+
+
+
+THE MFT ON THE DISK
+
+The $MFT metadata file itself contains the Master File Table to define each file in the file system. File record 0 in the MFT, i.e. the record named $MFT, defines the layout of the MFT. The $DATA attribute of the $MFT file record lists the clusters used by the actual MFT, and the $BITMAP attribute indicates the assigned MFT records. 
+
+If the $MFT file was to fail for any reason then the file system would be corrupted. Such a failure might be caused by the some internal corruption within the $MFT file or corruption within the boot sector. To make the system more reliable a backup copy of the important MFT records is needed. The MFT’s record number 1, the $MFTMirr file, is used for this backup. The $MFTMirr has a $DATA attribute which allocates clusters in the middle of the file system (or elsewhere in the file system) to save copies of key MFT records, especially $MFT, $MFTMirr, $LofFile, $Volume and others
+
+For performance reasons it is important to keep the MFT contiguous on the disk, however the $MFT can become fragmented. NTFS reserves some 12.5% of disk space, the so-called MFT Zone, immediately following the MFT. In the Microsoft NTFS implementation the MFT size is not fixed and can grow as required. MFT entries are not deleted but can be reallocated to new files.
+
+The $Boot file which is listed as MFT file record number 7 represents the boot sector content for the file system. The $Boot record has a $DATA attribute which is located in the first sector of the file system. On Microsoft systems usually a backup copy of the boot sector is found on the last sector of the volume, or in the middle of the volume. 
+
+
+
+Cluster assignment
+
+Consider the storing of data content in an MFT’s attribute, for example say we want to store the contents of a file. As already stated, if the amount of data is less than some 700 bytes then the attribute content might be stored as a resident attribute. However, for a larger file, a non-resident attribute is defined so the file’s contents can be stored in an external cluster, or clusters, i.e. clusters in the file system, which are not part of the MFT record. The attribute’s header will indicate if the attribute is resident or not. For a resident attribute the file content directly follows the header, for a non-resident attribute, the header provides the addresses for the external clusters. A data run defines a contiguous block of clusters. Figure N14a) shows an example resident $DATA attribute, while Figure N14b) shows a non-resident $DATA attribute. Cluster runs (i.e. data runs) are used to list intervals of clusters (runs) that store the non-resident attributes. A data run is defined by a pair: starting cluster address and the length in clusters. 
+
+
+
+a) A resident $DATA attribute
+
+
+
+       b) A non-resident $DATA attribute
+
+Figure N14:  Resident and non-resident attributes
+
+
+
+It can now be appreciated that the MFT file record has a similar function to the UNIX inode. Figure N15 shows an MTF record for a file with a non-resident $DATA attribute and a UNIX inode. 
+
+
+
+Figure N15:  MFT record and UNIX inode are similar concepts
+
+Non-resident attributes have a different attribute header data structure to resident attributes. The header structure needs to be able to describe an arbitrary number of cluster runs. For the run list the header gives the Starting Virtual Cluster (VCN) of the run list and the Ending VCN. This VCN range is required if another MTF record was required to describe the full file. The attribute header provides an offset to the actual run list – which can be considered to be part of the actual header. A single run could represent millions of consecutive disk clusters, or it may represent just a single cluster. 
+
+Note, the attribute header for a non-resident attribute contains fields to locate the runlists, as shown in Table N6.
+
+The first cluster run will have an offset relative to the start of the file system, i.e. relative to LCN 0. The second run will have an offset relative to the previous offset, and so forth. The offset is a signed number value so that a run can be position ahead of or behind a previous run. All run numbers are in cluster units. NTFS can locate an object (e.g. a file) on the disk by looking up the data runs to find the relevant LCN. 
+
+We have learned from the above that a file’s clusters are assigned in data runs of consecutive clusters for non-resident attributes. The $DATA attribute is used to describe a file’s assigned clusters. The $DATA attribute’s header holds the stream name – if it exists. Following the header is a list of cluster addresses for the file.
+
+
+
+
+BytesDescription0 .. 3Attribute type identifier4 .. 7Attribute length8 .. 8Non-resident flag (1 for non-resident)9 .. 9Length of the name10 ..11Offset to name12 ..13Flags14 ..15Attribute identifier16 ..23Start VCN of the runlist24 ..31End VCN of the runlist32 ..33Offset to the runlist34 ..35Compression unit size36 ..39Unused40 ..47Allocated size if attribute content48 ..55Actual size of attribute content56 ..63Initialised size of attribute content
+Table N6: Data structure for a non-resident attribute
+
+
+
+To take a simple example, say the first logical cluster (LCN) for a file is cluster 100 (LCN = 100) and the file has 110 clusters in total, stored in three runs as follows on the disk:
+
+A run of 40 clusters in the range LCN: 100 to 139    	(VCN: 0 to 39)
+A run of 24 clusters in the range LCN: 160 to 183	(VCN: 40 to 63)	
+A run of 46 clusters in the range LCN: 230 to 275	(VCN: 64 to 109)
+
+For this file we would say that there are 110 clusters with two holes. If there were no holes in the allocation range then the file’s cluster allocation could be described with a single run. However, for this example we need to use three runs to describe the cluster allocation. The example is illustrated in Figure N16. The $DATA attribute header gives the file’s VCN offset for the first cluster of the file and the offset for the first cluster that is beyond the file, thus the header shows 0, 110. The header is followed by run number pairs indicating LCN cluster offset address and run length, in the format (cluster offset address, cluster count), where each pair uses (2 x 8) bytes. The first run indicates clusters 100 to 139, the second run indicates clusters 160 to 183 and the third run indicated clusters 230 to 275. Very large files can be described in this way. Note, in practice the (2 x 8) byte pair is represented in a compressed format.
+
+
+
+
+Figure N16:  Example showing data runs for a non-resident $DATA attribute
+
+
+The $ATTRIBUTE_LIST attribute
+
+If there is a large number of attributes for a file and they do not fit into a single MFT file record, then more than one MFT record is required to store the full set of attributes. One might suggest in this case that all attributes’ contents could be made non-resident so that all attributes could fit into a single MFT record. However, a file may have many attributes and it is possible to run out of MFT record space which is just 1024 bytes in size. Even with non-resident attributes the header of each attribute needs to be stored in the MFT record.
+
+When multiple MFT records are used the first record is referred to as the base MFT record. The $ATTRIBUTE_LIST attribute is used to list all of the file’s attributes. The $ATTRIBUTE_LIST attribute has a low type identifier number of 32 – so it is always positioned in the base MFT record. Figure N17 shows an example file, which has 5 attributes, including the $ATTRIBUTE_LIST attribute. The $ATTRIBUTE_LIST attribute exists in this file because multiple MFT records are required. The $ATTRIBUTE_LIST attribute holds the following information:
+
+Type		the attribute type identifier number
+Record		the MFT record number
+Id		the Attribute Id for a given record
+VCN		the VCN of the start of the data run
+
+In the example the base MFT record is record number 2427 and it contains the attributes $STANDARD_INFO, $ATTRIBUTE_LIST, $FILE_NAME, and $DATA. The $DATA attribute extends into a second MFT record, located at record number 1952. It can be seen from the Attribute Id number (Id = 3) that this is a continuation of the same $DATA attribute. The next attribute is a different $DATA attribute as is seen from the Id number (Id = 4).
+
+Note, a non-base MFT record will contain the address of the base MFT record in its MFT record header. A non-base MFT record has a normal $DATA attribute and its attribute header will indicate the starting VCN of the data run. In Figure N17 the first $DATA attribute spans two MFT records. The first record (record 2427) can accommodate runs for the first 2008 clusters of the file and the second record stores the file beyond 2008 clusters.
+
+
+ 
+
+
+Figure N17:  Example file with 5 attributes
+
+DIRECTORIES
+
+In NTFS a directory is an index of filenames. Such an index in NTFS is a set of attributes that are organised in a sorted order. So, the basic concept realises a data structure that is sorted as a tree. The most common use of an index is to strore a collection of $FILENAME attributes so as to form a directory for the file system. However, other NTFS attributes could be indexed in this way. The NTFS index sorts the $FILE_NAME attributes in a B-tree fashion. A B-tree is a generalised form of a binary search tree structure for sorted data that allows searches, sequential access, insertions, and deletions of entries. 
+
+
+INDEX_ROOT Attribute
+The $INDEX_ROOT attribute refers to the root node of a B-tree. Figure N18 shows an MFT record with an $INDEX_ROOT attribute, and shows detail of an index entry structure. An index entry structure contains a file name and its corresponding MFT reference number. Note, if a MS-DOS name (8.3 format) existed there would be a second file name attribute in the index entry. There is a sequence of variable length index entries, where the sequence is terminated with an index entry whose last entry flag is set. A sequence of index entries (INDEX_ENTRY structures) is found in the attribute. Sometimes a directory is small enough to completely fit in the $INDEX_ROOT attribute. For a larger directory that cannot fit in the index root, two additional attributes are used: 1) an $INDEX_ALLOCATION attribute for the sub-nodes of the B-tree, and 2) a $BITMAP attribute. 
+
+
+A tree can have one or more nodes – and a node can have one or more index entries. The root of the tree is always represented in the $INDEX_ROOT attribute. The remaining nodes are represented by index records in the $INDEX_ALLOCATION attribute, as shown in Figure N19a). The $INDEX_ALLOCATION attribute is a non-resident attribute that contains index entries that do not fit into the $INDEX_ROOT attribute. The $INDEX_ALLOCATION attribute cannot exist without an $INDEX_ROOT attribute. The attribute is composed of one or more index records, where an index record is of a fixed size, usually 4KB in size. An index record represents a single node in a tree structure. It is possible that a directory will have unused index records over time, e.g. if a lot of files are deleted, so the $BITMAP attribute is used to keep track of which index records in the $INDEX_ALLOCATION attribute are allocated to an index record.
+
+Figure 19b) shows an illustration of the tree representing the structure of Figure 19a). The tree is a group of nodes where the root node is the head of the tree. A node that links to other nodes is said to be a parent node linking to a child node. A node that does not have any child nodes is a leaf node. If a node can store n index entries then it can have n+1 child nodes. In NTFS each index entry can have a child node. The last entry in the node, denoted by X in Figure N19b), can have a child node, but otherwise this last entry is a sort of dummy entry so that the n+1 child nodes can be implemented.
+
+In NTFS a node is a 4KByte record and can typically hold about ten index entries, depending on the filename lengths.
+
+
+
+
+
+
+
+
+
+
+
+
+
+Figure N18:  Structures for an NTFS index
+
+
+
+
+
+a) Example index with four nodes
+
+
+
+b) Example illustration of the four nodes
+
+
+Figure N19:  Example use of the $INDEX_ALLOCATION attribute
+
+
+Looking up a file name
+
+
+Say, for example, that the system wants to access the file C:\payroll\Rules.txt. See Figure N20. The system searches the object manager’s name space to find C: which will most likely be a disk volume. This determines the MFT to use. The MFT’s record number 5 is always used to represent the Root Directory metafile. The root directory can now be searched for the string “payroll”. The index entry for “payroll” will give an MFT reference number that becomes an index into the MFT for the file “payroll”, which is a directory file, as indicated in the MFT’s record header. The “payroll” directory is then searched for the string “Rules.txt” The index entry for “Rules.txt” will give an index into the MFT for the file “Rules.txt”, which is the required file.
+
+
+Figure N20:   Looking up the file name: C:\payroll\Rules.txt 
+ADS - Alternate Data Streams -  How they are stored
+
+The ADS concept was introduced earlier. Figure N21a) shows a file called Rules.txt. It is seen that this file also contains an ADS, called Rules.txt:hiding. Figure N21b) shows a file without an ADS. We say this file has one unnamed data stream, represented by the $DATA attribute. Figure N21c) shows the Rules.txt file which has an unnamed data stream, represented by the first $DATA attribute, and a named data stream, “hiding”, which is represented by the second $DATA attribute.
+
+
+a) An ADS example illustration
+
+
+
+b) File example with an unnamed data stream
+
+
+c) File example with an unnamed data stream and an ADS
+
+Figure N21:  ADS example
+
+NTFS - Encrypting File System 
+
+
+NTFS uses the Encrypting File System (EFS) for transparent encryption of files. A file system driver provides the encryption feature.  
+
+The EFS use public key cryptography for encryption, encrypting files with a bulk symmetric key, referred to as a File Encryption Key (FEK). An FEK is generated as a random number for the symmetric encryption. Each new file is encrypted with a new random number for the FEK.
+
+The symmetric encryption approach was chosen for speed performance reasons. The actual symmetric encryption algorithm used by EFS can vary depending on the version of the operating system and on the sales region. EFS supports the DESX algorithm with a128-bit key, the stronger 168-bit key Triple DES (3DES) algorithm and the 256-bit AES (AES-256) algorithm. The desired encryption algorithm, i.e. DESX , 3DES or AES-256, is specified in the Windows registry. 
+
+Figure N22 shows the file encryption process. The $DATA attribute is encrypted using the AES-256 (or other) scheme, using the 256-bit FEK, which is randomly generated. In practice, only a file’s $DATA attribute is encrypted but in theory it is possible to encrypt other attributes. Only non-resident data attributes are encrypted. The attribute header is not encrypted. If multiple $DATA attributes exist in an MFT record then all these attributes are encrypted with the same key.
+
+A user’s public key is stored in the Windows Registry. The FEK itself is encrypted with a user’s public key and the encrypted FEK is stored in the $EFS attribute of the actual file. Note, for an encrypted file the $LOGGED_UTILITY_STREAM attribute is referred to as the $EFS attribute. The EFS uses a 1024-bit RSA algorithm to encrypt the FEK. The EFS generates a new public/private key pair when EFS is invoked for the first time by a user.
+
+The user's encrypted FEK is stored as a DDF structure (Data Decryption Field) in the $EFS attribute. There can be a number of DDFs, each one representing a different user. The EFS creates a DDF for the current user, which stores the encrypted FEK.
+
+If the system policy defines a recovery agent, EFS also creates a Data Recovery Field (DRF), which stores the encrypted FEK. A recovery agent is some authority, e.g. the system administrator, who has power to decrypt a file. The DRF (Data Recovery Field) is also stored in the $EFS attribute, as the recovery agent's encrypted FEK. A separate DRF is defined for each defined recovery agent.
+
+A DDF, or a DRF, is a small data structure that is created for each user who has access to the file. The structure contains encryption information, the user’s Security ID (SID), and the encrypted FEK which is encrypted with the user’s public key. The structure is as follows:
+
+
+
+
+
+
+
+
+
+DDF key entry
+
+User SIDSecurity info.Encrypted FEK
+
+Encrypting a folder causes all files within the folder to be encrypted. If a file is copied to that folder it will be encrypted also.
+
+
+
+
+Figure N22:  EFS file encryption process
+
+
+
+A temporary plain file, named Efs0.tmp is created during the encryption process.  However, this file is deleted but not erased. Thus this could represent a security weakness.
+
+A single DDF is created for the user that encrypted the file. Shared access to encrypted files is permitted, where the user may decide to add more users to the key ring. The EFS encrypts the FEK with public keys of selected users. Such users must already have permissions to open the file. The first user to encrypt the file selects additional users to share the file. The EFS gets the additional user’s public key certificate from the Registry (certificate store) or from the Active Directory. Groups cannot be included to share an encrypted file. Say User_A wants to give User_B access to the file. To do this the EFS decrypts the FEK using the private key of User_A, and encrypts the FEK with User_B’s public key, thus a new DDF is created for User_B and is stored with the first one in the $EFS attribute. Figure N23 illustrated this situation.
+
+Only the users who have a relevant DDF or DRF can access the encrypted file. Thus only a user whose owns a proper private key can decrypt the FEK to access the file. Such a user, who may not be the file owner, could decrypt a file and then encrypt it again, thus preventing the owner from decrypting her own file.
+
+
+
+
+Figure N23:  EFS Encryption process – showing two users
+
+
+
+A user’s private key is encrypted using a symmetric-key scheme where the key is derived from the user's password. This private key is stored in the Registry (or could be stored elsewhere) in encrypted form.
+
+If a user wants to decrypt a file the EFS checks the $EFS attribute to inspect the list (key ring) of DDFs for a match for the user. If the DDF is found, then the user’s private key, which matches the EFS digital certificate that was used to encrypt the file, can be used to decrypt the FEK. Figure N24 shows the decryption process. The $EFS attribute is processed to access the user’s DDF to get the encrypted FEK. The user’s private key is then used to decrypt the FEK. The FEK is then used to decrypt the $DATA attribute. If a user’s access to a file is revoked, the user’s DDF is removed from the list. A file is not decrypted as a whole, rather it is decrypted block by block so that the file can be randomly accessed.
+
+
+
+
+Figure N24:  EFS Decryption process
+
+The recovery process is the same as the user decryption process, but here the EFS finds the recovery agent's private key in the DRF, rather than in the DDF. In some Windows systems the policy is such that when a user encrypts a file, both the DDF and the DRF fields are automatically created, so that a DRA (Data Recovery Agent) can recover the file data.
+
+Figure N25a) shows a file with a non-resident $DATA attribute. Figure N25b) shows the same file, but this time the file is encrypted. The $EFS attribute is shown and it appears that there are numerous DDF and DRF key entries. This suggests that a number of users have access to this file. Each user will have a DDF, identified by the user’s SID, which contains an encrypted FEK that can be decrypted by that specific user’s private key.
+
+
+
+a) An non-encrypted file
+
+
+
+b) An encrypted file
+
+Figure N25:  File encryption example showing the attributes
+
+NTFS Security
+
+
+The NTFS security policy is based on an Access Control List (ACL) scheme for file protection. Each file, or directory, can have a list to define who can access the file and what permissions each user has on accessing the file. The general ACL scheme is briefly introduced below.
+
+
+Access control list (ACL)
+Table N7 shows a simple example of a protection matrix, where there are seven file objects in the whole file system, and there are four users. The table defines, for each user, which objects can be accessed and what specific permissions are given to the user for each object.
+
+
+File1File2File3File4File5File6File7 AnnrrwrwxBillrwrrrrwClairerDanrwrwxrwx
+
+
+
+
+Table N7 : A protection matrix
+
+For example Ann has the following permissions:
+
+       File1		r	(read-only permission)
+       File2		rw	(read and write permission)
+       File4		rwx	(read, write and execute permissions)
+       Other files		(not allowed access)
+
+
+In practice such a protection matrix would be very large and sparse. So, let’s look at a scheme where the matrix could be stored by columns, where the empty elements could be discarded. This scheme is known as an ACL or an Access Control List scheme. Here, each file can have an associated ACL. For example the elements in the ACL for File1 and File2 are as follows:
+
+File1	Ann: r;	Bill: rw; Dan: rw 
+File2	Ann: rw; Claire: r; Dan: rwx
+
+The example shows a simple set of rights to read, write or execute the file. Additional rights might include: append, destroy, copy, change-owner etc.
+
+In another approach, the protection matrix could also be stored by row. This would not be an ACL scheme, instead this scheme is known as a capability scheme. Here each user would have a list of objects that she can access and a list of right associated with each object. For example, Ann’s capability list would be as follows:
+
+Ann  File1: r;  File2: rw;   File4: rwx
+
+
+
+
+NTFS SIDs
+
+A Security Identifier, which is referred to as a SID, is assigned by Microsoft Windows to identify a user, or a group of users. We say that the SID identifies a subject. The SID is a unique name. Windows allows access and privileges to resources based on the ACLs, where the SIDs identify the users and their groups. The SID is a variable-length structure. An example SID is as follows:
+
+ S-1-5-21-765-90-2011
+
+The number has a sequence:  S-R-I-S-S-….
+
+SID contents
+S Security – signifies a SIDRRevision number (currently at 1)I The Identifier Authority S….. A number of sub-authorities 
+
+
+Each file has an ACL
+
+Each user file has an ACL that is stored with the file. The ACL is stored in the file’s security descriptor. This security descriptor is represented by the file’s $SECURITY_DECRIPTOR attribute in early version of NTFS. In later versions the security descriptor is referenced in a control file.
+ 
+The security descriptor is used to protect a file in classic ACL fashion, by specifying the owner of the file and the permissions that the owner has granted to other users. The security descriptor also defines what actions should be logged in the auditing feature.
+
+Figure NA5 illustrates a file, showing the security descriptor, which is the  $SECURITY_DECRIPTOR attribute. The security descriptor contains headers, followed by one or two ACLs and two SIDs. The SIDs show the User and Group owners of the object.
+
+The first ACL, referred to as the DACL (discretionary ACL) lists the users and permissions as normally expected in an ACL-based scheme. The second ACL, referred to as the SACL (system ACL) is optional and is for auditing information. An ACL contains one or many ACEs, where each ACE contains a SID. An ACE has the following structure:
+
+
+
+
+The example in Figure N26 shows three users associated with the DACL, where each user has an ACE. The ACE defines the access rights for the user. There is also an ACE for ‘everyone’, to define the access rights for users outside of the three named users. Of course, in a real system, the users’ names would not be shown here, but their corresponding SIDs would be used. Note, an ACE can be an ‘Allow’ type ACE or a ‘Deny’ type ACE as illustrated in the example. The example also shows a SACL which has a single ACE entry to allow system auditing to be carried out by the administrator. This ACE is of type ‘audit’.
+
+ 
+
+
+
+Figure N26: NTFS original security descriptor
+
+Figure N27a) shows a simple NTFS file, where there is no security descriptor. Figure N27b) shows the security descriptor for the file, i.e. the $SECURITY_DESCRIPTOR attribute. The detail in this attribute shows that there are some seven ACEs, indicating that some six users have access to this file and there is also auditor access, indicated by the name Aut. Again, in a real system, of course, these names would be represented by SIDS. Figure N27c) shows the same file, but this time the file is encrypted using the EFS. It is interesting to note that the encryption is applied to the $DATA attribute only, so there is still a lot of unencrypted information available about this file to expose what users have access rights etc.
+
+a) A simple file
+
+
+b) File with a security descriptor
+
+
+c) An encrypted file with a security descriptor
+
+Figure N27:  File with security and encryption 
+
+Too many security descriptors?
+
+Since the release of NTFS version 3.0, all security descriptors are stored centrally in a metafile called $Secure, which is the metafile located is the MFT record number 9. The newer scheme still preserves the security descriptor, but instead of storing it directly in the file, the security descriptor is stored in the central $Secure file. The advantage of centrally stored security descriptors is that only one referenced instance of each unique security descriptor is required. Each file has a security descriptor, and such security descriptors can be large in size. However, often many files can have identical security descriptors, for example all files in one folder might have the same security descriptor. Thus, space is saved by storing just one instance of each unique security descriptor.
+
+Each security descriptor is given a unique security identifier within an NTFS volume, a Security_ID. Note, this is different to a SID. For each file and directory, the required security descriptor is identified using a Security_ID identifier which resides in the file’s $STANDARD_INFORMATION attribute. This 32-bit Security_ID is an index into the $Secure file to find the relevant security descriptor. Figure N28 illustrates the scheme.
+
+Figure N29 shows the structure of the $Secure file. The file contains two indexes, $SDH and $SII and a named data stream ($SDS). The $SDS is a non-resident attribute and contains the actual list of security descriptors. This can be a very long list. Technically the $Secure file has zero length since it does not have an unnamed $DATA attribute.
+
+The Security_ID is an index into the $SII index, to map Security_IDs to the security descriptor's location in the $SDS data attribute. The $SII index is sorted in order of ascending Security_Ids, using a Btree structure. The $SII index is used to locate the security descriptor of a file when the Security_ID is known.
+
+A $SDH hashed index is also present. A hash is computed from each security descriptor and the $SDH index is sorted by the hash of security descriptors. The $SDH index is used when a new seurity descriptor is needed for a file or a directory. If the hash of the new descriptor is not found in the index, then a new security descriptor and a new Security_ID are created and added to both the $SII undex and the $SDH index.
+
+Note, in Microsoft Windows, each security descriptor is stored twice in the $SDS stream. 
+
+For the $SII index the Security_IDs are read from the file’s $STANDARD_INFORMATION attribute during a file or a directory security scan. For a $SDH Index, a hash of the security setting is made for a file or directory.
+
+
+Figure N28: Central $Secure file concept
+
+
+
+
+Figure N29   The $Secure metafile 
+
+
+Access Tokens
+
+In Microsoft Windows an access token is an object that identifies privileges associated with a user account.  At user logon time, a security identifier (SID) is returned to the user, referred to as the subject, along with SIDs for the user’s groups. For that user an access token is created which is a list of the SIDs and privileges assigned to the user and the groups. Figure N30 shows the scheme.
+
+Each of the user’s processes and threads has a copy of the access token. When a thread attempts to access a securable object the access token is used to determine if authorisation is valid.
+
+ 
+
+
+ 
+
+Figure N30  An access token
+
+NTFS sample questions
+
+The addendum to this question set paper lists the NTFS metafiles and key attributes, along with an example structure for a file’s MFT record.
+
+Q1  For an NTFS file system, please answer the following:
+
+a) 	Briefly describe the MFT stating its purpose and its implementation on the disk
+
+b)	Briefly describe what is meant by an ADS, and show an example command that will create an ADS.
+
+c) 	For the ADS that you created in b) above, draw a diagram to show the structure of the file that contains the ADS, showing all of the file’s MFT record’s attributes and their proper positions within the MFT record.
+
+
+Q2   In the context of an NTFS file system, please answer the following:
+
+a) What is a security descriptor attribute?
+
+b)  What is the purpose of the $ATTRIBUTE_LIST attribute?
+
+c)  A file has the following content in its $ATTRIBUTE_LIST attribute:
+
+       Type:	  16	Entry: 2427	Id:0
+       Type:	  48	Entry: 2427	Id:2
+       Type:	  80	Entry: 2427	Id:3
+       Type:	128	Entry: 2427	Id:4	VCN: 	      0
+       Type:	128	Entry: 1952	Id:4	VCN: 	2009
+       Type:	128	Entry: 1525	Id:5	VCN: 	      0
+
+Draw a diagram to show the structure of this file’s MFT record, identifying all of the file’s attributes and records. How many attributes are they in this file?
+
+
+Q3  In the context of an NTFS file system, please answer the following:
+
+a) 	Draw the structure for a directory index entry to show its fields
+
+b) 	Explain briefly what is meant by a Btree 
+
+The diagram of Figure x  shows an NTFS index. Draw a diagram to show the structure of the directory file’s MFT record that describes this index. In your diagram show this file’s attributes, index records and each index entry that corresponds to Figure x.
+
+
+
+
+Figure x
+
+
+Q4   In the context of an NTFS file system, please answer the following:
+
+- What is the DDF?
+- What is an DRF?
+
+b) When an NTFS file is encrypted, answer the following:
+- Which attribute type (or types) is encrypted?
+- Is an attribute header encrypted?
+- For an encrypted file, is an ADS stream encrypted?
+- Is a non-resident $DATA attribute be encrypted?
+
+
+c) With the aid of a diagram describe the EFS file encryption process. Name any encryption   algorithms that are used.
+
+
+Q5  In the context of an NTFS file system, please answer the following:
+
+a)   Draw a diagram to show the structure for an encrypted file, showing the file’s attributes in its MFT record. Indicate in your diagram where the DDF and the DRF are located. Include the security descriptor in your diagram. Assume a pre-NTFS 3.0 style security descriptor attribute.
+
+b)  With the aid of a diagram describe the EFS file decryption process.
+Name any encryption algorithms that are used.
+
+
+Q6
+
+a)  In relation to system security, state what is meant by the following terms:
+- a protection matrix 
+- an ACL a capability list
+
+b)  In the context of an NTFS file system, state what is meant by an ACE and draw the a generic structure for such an ACE.
+
+c)  Draw an NTFS file structure showing correct attributes for a file that has a security descriptor (i.e. a pre NTFS version 3.0 scheme) and indicate where the ACEs are located.
+
+d)   Draw a diagram to show the structure of a file, that contains a $SECURITY_DESCRIPTOR attribute (i.e. a pre NTFS version 3.0 scheme). Show the file’s attributes and their proper positions within the MFT record. Indicate where the ACEs are located in the structure.
+
+
+Q7  An NTFS file is encrypted using EFS. Draw a diagram to show the structure of such an encrypted  file. Assume the file contains a $SECURITY_DESCRIPTOR attribute (i.e. a pre NTFS version 3.0 scheme). Show all of the file’s attributes and their proper positions within the MFT record. Indicate where the ACEs and the DDFs are located in the structure.
+
+
+Q8   In the context of an NTFS file system, please answer the following:
+
+a)  Briefly describe what is the $Secure metafile.
+
+b)  What is the purpose of the $SII index and the $SDH index in the $Secure metafile?
+
+c)  Draw a diagram to show the structure of the $Secure metafile, showing all of the file’s attributes and their proper positions within the MFT record. 
+
+
+
+
+
+
+Addendum for Sample Questions
+
+List of of abbreviations
+
+ACL	Access control list
+ADS	Alternate data stream
+DDF	Data decryption field
+DRF	Data recovery field
+EFS	Encrypting file system
+MFT	Master file table
+NTFS	NT’s file system
+
+Example structure of a file’s MFT record
+
+
+
+
+
+List of NTFS metafiles
+
+Metadata
+fileName of FileMFT
+RecordMFT – Master File Table$MFT0MFT2 –Master File Table 2$MFT
+Mirr1Log File$LogFile2Volume Descriptor$Volume3Attribute Definition Table$AttrDef4Root Directory / Folder"." 5Cluster Allocation Bitmap$Bitmap6Volume Boot Code$Boot7Bad Cluster File$Bad
+Clus8Security descriptors$Secure9Upper Case Table$UpCase10Extensions$Extend11
+
+
+List of NTFS attributes
+
+
+
+
+ADDITIONAL READING:
+
+The NTFS file system is not well documented as Microsoft never released low-level design information on this file system. However, the following information sources should prove useful:
+
+
+This book contains a good chapter on NTFS:
+Mark E. Russinovich, David A. Solomon. Microsoft Windows Internals (4th Edition): Microsoft Windows Server 2003, Windows XP, and Windows 2000 (Hardcover). Microsoft Press. 2005
+
+This book contains three good chapters on NTFS:
+Brian Carrier. File System Forensic Analysis (Paperback)
+Addison Wesley. 2005
+
+These two books exclusively cover NTFS – but unfortunately are old and not up to date:
+Rajeev Nagar. Windows NT File System Internals (OSR Classic Reprints). Paperback – reprinted –2006- original 1999.
+
+Helen Custer. Inside the Windows Nt File System (Paperback). Microsoft Press. 1994.
+(possibly not available now)
+
+These two web sites are useful:
+
+Ntfs.com
+
+NTFS Technicval Reference Manyual 2003 at:
+http://technet.microsoft.com/en-us/library/cc758691.aspx
+
+
+This is an uncompleted document which is available free to download:
+Richard Russon, Yuval Fledel. NTFS Documentation – ver 0.5. at:
+http://data.linux-ntfs.org/ntfsdoc.pdf
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+NTFS-Jan-2010		C-1
+
+NTFS file system. DH – May-09	53
+
+                                                                                                                                                                                                                                                                                                                                                                                                                        
+
+Section A:  Processes  -   by D. Heffernan University of Limerick
+
+
+The purpose of this section is to introduce operating systems, with an emphasis on processes.
+
+SOME DEFINITIONS
+
+PROGRAM:   An executable sequence of instructions which resides in the computer storage area. It is a static entity.
+
+PROCESS:   A program in execution. It consists of the executable program, data, stack, registers and other information necessary to run the program. It is a dynamic entity.
+
+PROCESSOR: The agent which
