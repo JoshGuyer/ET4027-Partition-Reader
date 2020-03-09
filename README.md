@@ -1,3 +1,3 @@
 # ET4027-Partition-Reader
-# gcc ./LabAssignment0.c -o ./PR
-# ./PR ./Sample_1.dd
+\n gcc ./LabAssignment0.c -o ./PR
+\n ./PR ./Sample_1.dd
